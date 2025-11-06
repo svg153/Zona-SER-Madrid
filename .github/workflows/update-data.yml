@@ -1,0 +1,64 @@
+name: Weekly Data Update
+
+on:
+  schedule:
+    # Cada lunes a las 02:00 UTC
+    - cron: '0 2 * * 1'
+  workflow_dispatch:  # Permite ejecución manual
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          ref: master
+      
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gdal-bin curl unzip jq
+      
+      - name: Update data
+        run: |
+          bash scripts/update-data.sh
+      
+      - name: Check if data changed
+        id: check_changes
+        run: |
+          if git diff --quiet web/zonas.geojson web/objects.geojson; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Commit and push changes
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add web/zonas.geojson web/objects.geojson
+          git commit -m "chore: update GeoJSON data from geoportal.madrid.es ($(date -u +'%Y-%m-%d'))"
+          git push
+      
+      - name: Create Pull Request if data changed
+        if: steps.check_changes.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: update GeoJSON data from geoportal.madrid.es"
+          title: "chore: weekly data update from geoportal.madrid.es"
+          body: |
+            **Automated weekly data update**
+            
+            This PR contains updated GeoJSON data from the Madrid Geoportal.
+            
+            - Data source: https://geoportal.madrid.es/IDEAM_WBGEOPORTAL/dataset.iam?id=9506daa5-e317-11ec-8359-60634c31c0aa
+            - Updated: $(date -u +'%Y-%m-%d %H:%M UTC')
+            - Files: web/*.geojson
+            
+            Please review and merge if changes are acceptable.
+          branch: data/weekly-update
+          delete-branch: true
