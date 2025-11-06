@@ -1,1 +1,11 @@
 venv
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.tmp
+*.log
+# GDAL intermediate artifacts
+sources/total.gpkg
