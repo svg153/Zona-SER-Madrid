@@ -1,18 +1,25 @@
 #! /bin/bash
+set -euo pipefail
 
-SRC=../sources
-DST=../web
-TOTAL=$SRC/total.gpkg
-rm $TOTAL
-rm $DST/crosses.geojson
-rm $DST/zonas.geojson
-rm $DST/calles.geojson
-rm $DST/objects.geojson
-rm $SRC/parquimetros.geojson
+# Get absolute paths to ensure consistency regardless of CWD
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SRC="$(cd "$SCRIPT_DIR/../sources" && pwd)"
+DST="$(cd "$SCRIPT_DIR/../web" && pwd)"
+TOTAL="$SRC/total.gpkg"
+rm -f "$TOTAL"
+rm -f "$DST/crosses.geojson"
+rm -f "$DST/zonas.geojson"
+rm -f "$DST/calles.geojson"
+rm -f "$DST/objects.geojson"
+rm -f "$DST/parquimetros.geojson"
 
 # https://geoportal.madrid.es/IDEAM_WBGEOPORTAL/dataset.iam?id=9506daa5-e317-11ec-8359-60634c31c0aa
 
-ogr2ogr -f gpkg $TOTAL /vsizip/$SRC/BARRIOS_APARCAMIENTOS_SER.zip
+# Import direct shapefiles from sources/
+ogr2ogr -f gpkg $TOTAL "$SRC/Barrios_Zona_SER.shp" -nln Limite_Barrios_Zona_SER
+ogr2ogr -f gpkg -append $TOTAL "$SRC/Parquimetros.shp" -nln PARQUIMETROS
+ogr2ogr -f gpkg -append $TOTAL "$SRC/Bandas_de_Aparcamiento.shp" -nln BANDAS_DE_APARCAMIENTO
+
 ogrinfo $TOTAL -sql "ALTER TABLE Limite_Barrios_Zona_SER ADD COLUMN zona Text"
 ogrinfo $TOTAL -sql "ALTER TABLE Limite_Barrios_Zona_SER ADD COLUMN name Text"
 ogrinfo $TOTAL -dialect SQLite -sql "UPDATE Limite_Barrios_Zona_SER SET zona = CODDIS||CODBAR"
@@ -20,8 +27,8 @@ ogrinfo $TOTAL -dialect SQLite -sql "UPDATE Limite_Barrios_Zona_SER SET name = z
 
 ogrinfo $TOTAL -sql "ALTER TABLE PARQUIMETROS ADD COLUMN zona Text"
 ogrinfo $TOTAL -sql "ALTER TABLE PARQUIMETROS ADD COLUMN description Text"
-ogrinfo $TOTAL -dialect SQLite -sql "UPDATE PARQUIMETROS SET zona = ltrim(substr(BARRIO, 1, 2),'0')||ltrim(substr(BARRIO, 4, 2),'0')"
-ogrinfo $TOTAL -dialect SQLite -sql "UPDATE PARQUIMETROS SET description = 'Parquímetro: ' || MATRICULA || '<br>' || CALLE || ', ' || NUMERO || '<br>Zona: ' || zona"
+# Note: Parquimetros shapefile only has MATRICULA; enrichment from CSV would require separate join
+ogrinfo $TOTAL -dialect SQLite -sql "UPDATE PARQUIMETROS SET description = 'Parquímetro: ' || MATRICULA"
 
 ogrinfo $TOTAL -sql "ALTER TABLE BANDAS_DE_APARCAMIENTO ADD COLUMN description Text"
 ogrinfo $TOTAL -dialect SQLite -sql "UPDATE BANDAS_DE_APARCAMIENTO SET description = 'Aparcamiento: ' || Bateria_Li || '<br>Plazas: ' || Res_NumPla  || '<br>Color: ' || Color"
