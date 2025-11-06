@@ -16,7 +16,7 @@ fi
 echo "🚀 Iniciando servidor web..."
 echo "📍 http://127.0.0.1:8000/index.html"
 echo ""
-echo "Press Ctrl+C para detener"
+echo "Presiona Ctrl+C para detener"
 echo ""
 
 cd "$WEB_DIR"

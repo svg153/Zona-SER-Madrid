@@ -8,8 +8,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_DIR"
 
-# Parámetros
-CLEAN_ONLY=${1:-false}
 
 # Descargar datos
 echo "⬇️  Descargando datos de geoportal.madrid.es..."
@@ -91,9 +89,6 @@ rm -rf sources/*.shp
 rm -rf sources/*.shx
 rm -rf sources/*.xml
 rm -rf /tmp/process.log
-rm -rf web/calles.geojson
-rm -rf web/crosses.geojson
-rm -rf web/parquimetros.geojson
 echo "✅ Archivos temporales eliminados"
 echo ""
 
