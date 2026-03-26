@@ -6,29 +6,34 @@ on:
     - cron: '0 2 * * 1'
   workflow_dispatch:  # Permite ejecución manual
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   update-data:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
         with:
           ref: master
-      
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gdal-bin curl unzip jq
-      
+
+      - name: Build Docker image
+        run: docker build -t zona-ser-update .
+
       - name: Update data
         run: |
-          bash scripts/update-data.sh
-      
+          docker run --rm \
+            -v ${{ github.workspace }}:/workspace \
+            zona-ser-update \
+            bash scripts/update-data.sh
+
       - name: Check if data changed
         id: check_changes
         run: |
-          if git diff --quiet web/zonas.geojson web/objects.geojson; then
+          if git diff --quiet web/; then
             echo "changed=false" >> $GITHUB_OUTPUT
           else
             echo "changed=true" >> $GITHUB_OUTPUT
@@ -40,17 +45,17 @@ jobs:
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "chore: update GeoJSON data from geoportal.madrid.es ($(date -u +'%Y-%m-%d'))"
+          commit-message: "chore: update GeoJSON data from geoportal.madrid.es (${{ steps.check_changes.outputs.date }})"
           title: "chore: weekly data update from geoportal.madrid.es"
           body: |
             **Automated weekly data update**
-            
+
             This PR contains updated GeoJSON data from the Madrid Geoportal.
-            
+
             - Data source: https://geoportal.madrid.es/IDEAM_WBGEOPORTAL/dataset.iam?id=9506daa5-e317-11ec-8359-60634c31c0aa
             - Updated: ${{ steps.check_changes.outputs.date }}
             - Files: web/*.geojson
-            
+
             Please review and merge if changes are acceptable.
           branch: data/weekly-update
           delete-branch: true

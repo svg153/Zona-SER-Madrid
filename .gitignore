@@ -6,3 +6,4 @@ Thumbs.db
 *.tmp
 *.log
 sources/
+scripts/_inspect-zip.sh
