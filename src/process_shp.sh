@@ -16,9 +16,11 @@ rm -f "$DST/parquimetros.geojson"
 # https://geoportal.madrid.es/IDEAM_WBGEOPORTAL/dataset.iam?id=9506daa5-e317-11ec-8359-60634c31c0aa
 
 # Import direct shapefiles from sources/
-ogr2ogr -f gpkg $TOTAL "$SRC/Barrios_Zona_SER.shp" -nln Limite_Barrios_Zona_SER
-ogr2ogr -f gpkg -append $TOTAL "$SRC/Parquimetros.shp" -nln PARQUIMETROS
-ogr2ogr -f gpkg -append $TOTAL "$SRC/Bandas_de_Aparcamiento.shp" -nln BANDAS_DE_APARCAMIENTO
+# Note: Barrios and Parquimetros come from REST API as GeoJSON (already EPSG:4326)
+# Bandas come from SHP (EPSG:25830) so we reproject to EPSG:4326 for consistency
+ogr2ogr -f gpkg $TOTAL "$SRC/barrios.geojson" -nln Limite_Barrios_Zona_SER
+ogr2ogr -f gpkg -append $TOTAL "$SRC/parquimetros_raw.geojson" -nln PARQUIMETROS
+ogr2ogr -f gpkg -append -t_srs EPSG:4326 $TOTAL "$SRC/SER_BANDA_APARCAMIENTO.shp" -nln BANDAS_DE_APARCAMIENTO
 
 ogrinfo $TOTAL -sql "ALTER TABLE Limite_Barrios_Zona_SER ADD COLUMN zona Text"
 ogrinfo $TOTAL -sql "ALTER TABLE Limite_Barrios_Zona_SER ADD COLUMN name Text"

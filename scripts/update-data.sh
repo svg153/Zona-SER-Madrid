@@ -10,7 +10,7 @@ cd "$PROJECT_DIR"
 
 
 # Descargar datos
-echo "⬇️  Descargando datos de geoportal.madrid.es..."
+echo "⬇️  Descargando bandas de aparcamiento (SHP)..."
 mkdir -p sources
 cd sources
 curl -L "https://geoportal.madrid.es/fsdescargas/IDEAM_WBGEOPORTAL/MOVILIDAD/ZONA_SER/SHP_ZIP.zip" \
@@ -22,28 +22,54 @@ echo ""
 # Extraer shapefiles
 echo "📦 Extrayendo shapefiles..."
 unzip -jo BARRIOS_APARCAMIENTOS_SER.zip > /dev/null
-echo "✅ Shapefiles extraídos"
+rm -f BARRIOS_APARCAMIENTOS_SER.zip
+echo "✅ Shapefile extraído: SER_BANDA_APARCAMIENTO.shp"
 echo ""
 
-# Borrar ZIP descargado
-rm -rf BARRIOS_APARCAMIENTOS_SER.zip
+# Descargar barrios y parquímetros desde el servicio REST
+echo "⬇️  Descargando barrios SER desde REST API..."
+curl -sL "https://sigma.madrid.es/hosted/rest/services/GEOPORTAL/SERVICIO_DE_ESTACIONAMIENTO_REGULADO/MapServer/3/query?where=1%3D1&outFields=*&outSR=4326&f=geojson" \
+  -o barrios.geojson
+echo "✅ Barrios descargados"
+
+echo "⬇️  Descargando parquímetros desde REST API (con paginación)..."
+PARQ_URL="https://sigma.madrid.es/hosted/rest/services/GEOPORTAL/SERVICIO_DE_ESTACIONAMIENTO_REGULADO/MapServer/5/query"
+PARQ_TOTAL=$(curl -sL "${PARQ_URL}?where=1%3D1&returnCountOnly=true&f=json" | jq '.count')
+PARQ_PAGE=2000
+PARQ_OFFSET=0
+PARQ_TMP=$(mktemp -d)
+while [ "$PARQ_OFFSET" -lt "$PARQ_TOTAL" ]; do
+  curl -sL "${PARQ_URL}?where=1%3D1&outFields=*&outSR=4326&f=geojson&resultOffset=${PARQ_OFFSET}&resultRecordCount=${PARQ_PAGE}" \
+    -o "${PARQ_TMP}/page_${PARQ_OFFSET}.geojson"
+  PARQ_OFFSET=$((PARQ_OFFSET + PARQ_PAGE))
+done
+jq -s '{type: "FeatureCollection", features: [.[].features[]]}' "${PARQ_TMP}"/page_*.geojson > parquimetros_raw.geojson
+rm -rf "$PARQ_TMP"
+echo "✅ Parquímetros descargados ($PARQ_TOTAL features)"
+echo ""
 
 cd ..
 
-# Verificar shapefiles
+# Verificar datos descargados
 echo "🔍 Verificando integridad de datos..."
-SHAPEFILES=(
-  "sources/Barrios_Zona_SER.shp"
-  "sources/Parquimetros.shp"
-  "sources/Bandas_de_Aparcamiento.shp"
-)
 
-for shp in "${SHAPEFILES[@]}"; do
-  if [ -f "$shp" ]; then
-    COUNT=$(ogrinfo -ro "$shp" "$(basename "$shp" .shp)" -so 2>/dev/null | grep "Feature Count:" | grep -oE "[0-9]+")
-    echo "   ✓ $(basename "$shp"): $COUNT features"
+# SHP de bandas de aparcamiento
+SHP="sources/SER_BANDA_APARCAMIENTO.shp"
+if [ -f "$SHP" ]; then
+  COUNT=$(ogrinfo -ro "$SHP" SER_BANDA_APARCAMIENTO -so 2>/dev/null | grep "Feature Count:" | grep -oE "[0-9]+")
+  echo "   ✓ SER_BANDA_APARCAMIENTO.shp: $COUNT features"
+else
+  echo "   ✗ FALTA: $SHP"
+  exit 1
+fi
+
+# GeoJSON de barrios y parquímetros
+for json in sources/barrios.geojson sources/parquimetros_raw.geojson; do
+  if [ -f "$json" ]; then
+    COUNT=$(jq '.features | length' "$json" 2>/dev/null || echo "?")
+    echo "   ✓ $(basename "$json"): $COUNT features"
   else
-    echo "   ✗ FALTA: $shp"
+    echo "   ✗ FALTA: $json"
     exit 1
   fi
 done
@@ -75,18 +101,10 @@ echo ""
 
 # Limpiar archivos temporales
 echo "🧹 Limpiando archivos temporales..."
-rm -rf sources/*.zip
-rm -rf sources/*.CPG
-rm -rf sources/*.cpg
-rm -rf sources/*.dbf
-rm -rf sources/*.gpkg
-rm -rf sources/*.prj
-rm -rf sources/*.sbn
-rm -rf sources/*.sbx
-rm -rf sources/*.shp
-rm -rf sources/*.shx
-rm -rf sources/*.xml
-rm -rf /tmp/process.log
+rm -f sources/*.zip sources/*.CPG sources/*.cpg sources/*.dbf sources/*.gpkg \
+       sources/*.prj sources/*.sbn sources/*.sbx sources/*.shp sources/*.shx \
+       sources/*.xml sources/*.geojson
+rm -f /tmp/process.log
 echo "✅ Archivos temporales eliminados"
 echo ""
 
