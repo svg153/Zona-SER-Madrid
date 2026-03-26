@@ -21,13 +21,11 @@ echo ""
 
 # Extraer shapefiles
 echo "📦 Extrayendo shapefiles..."
-unzip -o BARRIOS_APARCAMIENTOS_SER.zip > /dev/null
-mv SHP_ZIP/* .
+unzip -jo BARRIOS_APARCAMIENTOS_SER.zip > /dev/null
 echo "✅ Shapefiles extraídos"
 echo ""
 
-# Borrar directorio temporal
-rm -rf SHP_ZIP
+# Borrar ZIP descargado
 rm -rf BARRIOS_APARCAMIENTOS_SER.zip
 
 cd ..
