@@ -1,6 +1,6 @@
 #!/bin/bash
 # scripts/update-data.sh - Actualizar datos sin instalar dependencias (reutilizable)
-# Uso: bash scripts/update-data.sh [--clean-only]
+# Uso: bash scripts/update-data.sh
 
 set -euo pipefail
 

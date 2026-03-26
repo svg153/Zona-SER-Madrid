@@ -1,70 +1,80 @@
 # Zona-SER-Madrid
 
-Herramienta para ver online las distintas zonas de la Zona SER de Madrid, sus plazas de aparcamiento por colores y la ubicación de los parquímetros en un mapa.
+Visor web de la zona SER de Madrid con:
+
+- Zonas SER (polígonos)
+- Bandas/plazas de aparcamiento por color
+- Parquímetros
+
+Los datos se generan automáticamente desde fuentes oficiales del Ayuntamiento de Madrid.
 
 ## 🌐 Visor web
 
-**GitHub Pages:** https://svg153.github.io/Zona-SER-Madrid/
+Si GitHub Pages está activado en este repositorio, el visor se publica en:
 
-Se actualiza automáticamente cada lunes a las 2:00 UTC con datos del geoportal oficial.
+`https://<owner>.github.io/Zona-SER-Madrid/`
 
-## ⚡ Inicio rápido local
+También puedes abrirlo en local con `bash run.sh`.
+
+## ⚡ Inicio rápido
+
+### Opción A: local (instala dependencias del sistema)
 
 ```bash
-git clone https://github.com/svg153/Zona-SER-Madrid.git
+git clone https://github.com/<owner>/Zona-SER-Madrid.git
 cd Zona-SER-Madrid
-bash setup.sh          # Descarga datos, genera GeoJSON (~2:30 min)
-bash run.sh            # Abre http://127.0.0.1:8000/index.html
+bash setup.sh
+bash run.sh
 ```
 
-Para más detalles, ver [Quickstart](specs/001-add-missing-ser-zones/quickstart.md)
+### Opción B: Docker (recomendada)
 
-## Servicio de Estacionamiento Regulado (SER)
+```bash
+git clone https://github.com/<owner>/Zona-SER-Madrid.git
+cd Zona-SER-Madrid
+bash scripts/docker-run.sh
+bash run.sh
+```
 
-Madrid tiene desde hace años limitado el aparcamiento de vehículos dentro de (más o menos) la M-30. Los vecinos pueden aparcar (previo pago de una tarifa) en su zona en las plazas verdes. Así mismo, los tickets de estacionamiento para el resto están limitados para una zona específica y color. Visite la web del ayuntamiento para ver las condiciones de aparcamiento dependiendo del color de la plaza.
+`run.sh` abre el visor en `http://127.0.0.1:8000/index.html`.
 
-Este visor web pretende facilitar la ubicación de las plazas por colores y parquímetros dentro de la Zona SER de Madrid de una forma ágil en un mapa interactivo.
+## 🗺️ Origen de los datos
 
-![image](https://user-images.githubusercontent.com/534414/116054093-a0915780-a67b-11eb-8e73-2577726a5d54.png)
+Fuente oficial: [Servicio de Estacionamiento Regulado (SER)](https://geoportal.madrid.es/IDEAM_WBGEOPORTAL/dataset.iam?id=9506daa5-e317-11ec-8359-60634c31c0aa)
 
-## Origen de los datos
+Pipeline de datos:
 
-Los datos de las zonas, plazas y parquímetros proceden del ["Servicio de Estacionamiento Regulado (SER)"](https://geoportal.madrid.es/IDEAM_WBGEOPORTAL/dataset.iam?id=9506daa5-e317-11ec-8359-60634c31c0aa) del ayuntamiento de Madrid. Los ficheros fuente en formato SHP se encuentran en la carpeta [sources](sources).
+1. Descarga de bandas de aparcamiento (SHP)
+2. Descarga de barrios y parquímetros (REST API)
+3. Conversión y enriquecimiento con GDAL/OGR
+4. Generación de `web/*.geojson`
 
-Esta web no puede ser usada como fuente inequívoca para temas jurídicos. En ese caso póngase en contacto con el ayuntamiento directamente. Es meramente de consulta, y no está mantenida por el ayuntamiento de Madrid ni por ningún organismo público.
+> Nota: la carpeta `sources/` se usa como área temporal durante el proceso y se limpia al final de cada actualización.
 
-## Visor web
+## 🔄 Actualización de datos
 
-El visor web hecho con [Leaflet](https://leafletjs.com/) muestra inicialmente las 65 zonas marcadas en violeta. Haciendo click en cualquiera de ellas se muestran las plazas de aparcamiento por colores (líneas verdes, azules, rojas, naranjas, etc.) y los parquímetros (puntos negros). Al hacer click en los elementos aparece un diálogo con información del mismo.
+- Script principal: `scripts/update-data.sh`
+- Ejecución semanal automática: lunes a las 02:00 UTC (GitHub Actions)
+- Si hay cambios en `web/*.geojson`, se crea una PR automática
 
-- **Plazas verdes**: Residentes con tarifa
-- **Plazas azules**: Otros colores y restricciones
-- **Plazas rojas**: Zona especial (La Paz)
-- **Plazas naranjas**: Ámbitos especiales (Templo de Debod, Cuesta de la Vega)
-- **Plazas cyan**: Alta Rotación
+## 🚀 Automatización y despliegue
 
-No se muestran todas las plazas inicialmente para no ralentizar el navegador. Selecciona solo las zonas que necesites para mejor rendimiento.
+Workflows incluidos:
 
-## Actualización de datos
-
-La versión actual está hecha el 6 de noviembre de 2025 e incluye los 14 distritos de la zona SER (últimas adiciones: Usera, Comillas en Carabanchel).
+- `Weekly Data Update`: actualiza datos y abre PR si hay cambios
+- `Deploy to GitHub Pages`: publica `web/` al hacer push a `master`
 
 ## Estructura del proyecto
 
-- **`web/`**: Visor web interactivo con Leaflet y datos GeoJSON
-- **`src/`**: Script `process_shp.sh` para convertir datos SHP a GeoJSON
-- **`sources/`**: Ficheros SHP descargados del ayuntamiento
-- **`specs/`**: Especificaciones y documentación de features
+- `web/`: visor Leaflet + GeoJSON generados
+- `src/`: transformación geoespacial (`process_shp.sh`)
+- `scripts/`: utilidades de actualización local/Docker
+- `.github/workflows/`: automatización CI/CD
 
-## 🚀 Deployment y Automatización
+## Aviso legal
 
-**GitHub Actions Workflows:**
-
-- **Weekly Data Update** → Cada lunes 02:00 UTC: descarga datos, genera GeoJSON, crea PR
-- **Deploy to GitHub Pages** → Al hacer push a `master`: despliega en GitHub Pages
-
-Ver [GITHUB_PAGES.md](GITHUB_PAGES.md) para configuración detallada.
+Este proyecto es de consulta y no sustituye la información oficial con validez jurídica. Para uso normativo o sancionador, consulta siempre fuentes oficiales del Ayuntamiento de Madrid.
 
 ## Licencia
 
-Todo el contenido original de este repositorio está bajo la licencia [BSD-3-Clause](LICENSE).
+Todo el contenido original de este repositorio está bajo [BSD-3-Clause](LICENSE).
