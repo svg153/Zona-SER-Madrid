@@ -1,0 +1,6 @@
+.git/
+.vscode/
+.idea/
+sources/
+web/*.geojson
+*.md
