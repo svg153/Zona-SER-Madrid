@@ -1,0 +1,61 @@
+name: Weekly Data Update
+
+on:
+  schedule:
+    # Cada lunes a las 02:00 UTC
+    - cron: '0 2 * * 1'
+  workflow_dispatch:  # Permite ejecución manual
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          ref: master
+
+      - name: Build Docker image
+        run: docker build -t zona-ser-update .
+
+      - name: Update data
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:/workspace \
+            zona-ser-update \
+            bash scripts/update-data.sh
+
+      - name: Check if data changed
+        id: check_changes
+        run: |
+          if git diff --quiet web/; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "date=$(date -u +'%Y-%m-%d %H:%M UTC')" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Pull Request if data changed
+        if: steps.check_changes.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: update GeoJSON data from geoportal.madrid.es (${{ steps.check_changes.outputs.date }})"
+          title: "chore: weekly data update from geoportal.madrid.es"
+          body: |
+            **Automated weekly data update**
+
+            This PR contains updated GeoJSON data from the Madrid Geoportal.
+
+            - Data source: https://geoportal.madrid.es/IDEAM_WBGEOPORTAL/dataset.iam?id=9506daa5-e317-11ec-8359-60634c31c0aa
+            - Updated: ${{ steps.check_changes.outputs.date }}
+            - Files: web/*.geojson
+
+            Please review and merge if changes are acceptable.
+          branch: data/weekly-update
+          delete-branch: true

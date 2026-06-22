@@ -1,0 +1,9 @@
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.tmp
+*.log
+sources/
+scripts/_inspect-zip.sh
