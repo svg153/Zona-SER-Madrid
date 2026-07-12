@@ -9,7 +9,6 @@ on:
 permissions:
   contents: write
   pull-requests: write
-  issues: write
 
 jobs:
   update-data:
@@ -65,24 +64,3 @@ jobs:
           branch: data/weekly-update
           delete-branch: true
           labels: automated-update
-
-      - name: Auto-merge approved PR
-        if: steps.check_changes.outputs.changed == 'true'
-        run: |
-          PR_NUMBER=$(gh pr list --state open --label automated-update --json number --jq '.[0].number' 2>/dev/null || echo "")
-          if [ -z "$PR_NUMBER" ]; then
-            echo "No automated-update PR found to merge"
-            exit 0
-          fi
-          
-          echo "Found PR #$PR_NUMBER with automated-update label"
-          
-          # Wait a moment for any checks to register
-          echo "Waiting for PR to be ready..."
-          sleep 5
-          
-          # Auto-merge with squash
-          gh pr merge $PR_NUMBER --squash --delete-branch
-          echo "✅ PR #$PR_NUMBER merged automatically"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
