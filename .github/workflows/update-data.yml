@@ -9,6 +9,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  issues: write
 
 jobs:
   update-data:
@@ -19,6 +20,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           ref: master
+          fetch-depth: 0
 
       - name: Build Docker image
         run: docker build -t zona-ser-update .
@@ -38,6 +40,10 @@ jobs:
           else
             echo "changed=true" >> $GITHUB_OUTPUT
             echo "date=$(date -u +'%Y-%m-%d %H:%M UTC')" >> $GITHUB_OUTPUT
+            # Calcular diff stats
+            echo "additions=$(git diff --numstat web/ | awk '{s+=$1} END {print s+0}')" >> $GITHUB_OUTPUT
+            echo "deletions=$(git diff --numstat web/ | awk '{s+=$2} END {print s+0}')" >> $GITHUB_OUTPUT
+            echo "files=$(git diff --name-only web/ | wc -l)" >> $GITHUB_OUTPUT
           fi
 
       - name: Create Pull Request if data changed
@@ -55,7 +61,28 @@ jobs:
             - Data source: https://geoportal.madrid.es/IDEAM_WBGEOPORTAL/dataset.iam?id=9506daa5-e317-11ec-8359-60634c31c0aa
             - Updated: ${{ steps.check_changes.outputs.date }}
             - Files: web/*.geojson
-
-            Please review and merge if changes are acceptable.
+            - Changes: +${{ steps.check_changes.outputs.additions }} / -${{ steps.check_changes.outputs.deletions }} (${{ steps.check_changes.outputs.files }} files)
           branch: data/weekly-update
           delete-branch: true
+          labels: automated-update
+
+      - name: Auto-merge approved PR
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          PR_NUMBER=$(gh pr list --state open --label automated-update --json number --jq '.[0].number' 2>/dev/null || echo "")
+          if [ -z "$PR_NUMBER" ]; then
+            echo "No automated-update PR found to merge"
+            exit 0
+          fi
+          
+          echo "Found PR #$PR_NUMBER with automated-update label"
+          
+          # Wait a moment for any checks to register
+          echo "Waiting for PR to be ready..."
+          sleep 5
+          
+          # Auto-merge with squash
+          gh pr merge $PR_NUMBER --squash --delete-branch
+          echo "✅ PR #$PR_NUMBER merged automatically"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
