@@ -12,6 +12,7 @@ permissions:
 
 jobs:
   update-data:
+    name: Update GeoJSON data
     runs-on: ubuntu-latest
 
     steps:
@@ -31,19 +32,134 @@ jobs:
             zona-ser-update \
             bash scripts/update-data.sh
 
+      - name: Validate updated GeoJSON files
+        id: validate
+        run: |
+          set -euo pipefail
+          ERRORS=""
+          WARNINGS=""
+
+          # Definir archivos esperados y mínimos
+          declare -A MIN_FEATURES
+          MIN_FEATURES["web/zonas.geojson"]=1
+          MIN_FEATURES["web/objects.geojson"]=1
+          MIN_FEATURES["web/calles.geojson"]=1
+          MIN_FEATURES["web/parquimetros.geojson"]=1
+          MIN_FEATURES["web/crosses.geojson"]=0
+
+          TOTAL_FEATURES=0
+          TOTAL_FILES=0
+
+          for geojson in web/zonas.geojson web/objects.geojson web/calles.geojson web/parquimetros.geojson web/crosses.geojson; do
+            if [ ! -f "$geojson" ]; then
+              ERRORS="${ERRORS}✗ MISSING: $geojson\n"
+              continue
+            fi
+
+            # Validar JSON
+            if ! jq empty "$geojson" 2>/dev/null; then
+              ERRORS="${ERRORS}✗ INVALID JSON: $geojson\n"
+              continue
+            fi
+
+            # Validar estructura GeoJSON
+            TYPE=$(jq -r '.type // empty' "$geojson" 2>/dev/null || echo "")
+            if [ "$TYPE" != "FeatureCollection" ]; then
+              ERRORS="${ERRORS}✗ NOT FeatureCollection: $geojson (got: $TYPE)\n"
+              continue
+            fi
+
+            # Contar features
+            COUNT=$(jq '.features | length' "$geojson" 2>/dev/null || echo "-1")
+            if [ "$COUNT" -lt 0 ] 2>/dev/null; then
+              ERRORS="${ERRORS}✗ CANNOT COUNT features: $geojson\n"
+              continue
+            fi
+
+            TOTAL_FEATURES=$((TOTAL_FEATURES + COUNT))
+            TOTAL_FILES=$((TOTAL_FILES + 1))
+
+            # Mínimos por archivo
+            MIN=${MIN_FEATURES[$geojson]:-0}
+            if [ "$COUNT" -lt "$MIN" ]; then
+              ERRORS="${ERRORS}✗ TOO FEW FEATURES: $geojson ($COUNT < $MIN minimum)\n"
+            fi
+
+            echo "  ✓ $geojson: $COUNT features"
+          done
+
+          # Validar que objetos.geojson tenga las propiedades esperadas (muestra de 1 feature)
+          if [ -f "web/objects.geojson" ]; then
+            OBJ_PROPS=$(jq -r '.features[0] // empty | keys | join(",")' web/objects.geojson 2>/dev/null || echo "")
+            if echo "$OBJ_PROPS" | grep -q "description"; then
+              echo "  ✓ objects.geojson has expected properties: $OBJ_PROPS"
+            else
+              WARNINGS="${WARNINGS}⚠ objects.geojson may be missing 'description' property\n"
+            fi
+          fi
+
+          # Validar que calles.geojson tenga zona (spatial join con barrios)
+          if [ -f "web/calles.geojson" ]; then
+            CALLE_PROPS=$(jq -r '.features[0] // empty | keys | join(",")' web/calles.geojson 2>/dev/null || echo "")
+            if echo "$CALLES_PROPS" | grep -q "zona"; then
+              echo "  ✓ calles.geojson has spatial join property: zona"
+            else
+              WARNINGS="${WARNINGS}⚠ calles.geojson may be missing 'zona' property from spatial join\n"
+            fi
+          fi
+
+          # Reporte
+          echo "total_features=$TOTAL_FEATURES" >> $GITHUB_OUTPUT
+          echo "total_files=$TOTAL_FILES" >> $GITHUB_OUTPUT
+
+          if [ -n "$ERRORS" ]; then
+            echo "### ❌ Validación fallida" >> $GITHUB_STEP_SUMMARY
+            echo -e "$ERRORS" >> $GITHUB_STEP_SUMMARY
+            echo "validation_failed=true" >> $GITHUB_OUTPUT
+            echo "ERRORS<<EOF" >> $GITHUB_OUTPUT
+            echo -e "$ERRORS" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+          if [ -n "$WARNINGS" ]; then
+            echo -e "$WARNINGS"
+          fi
+
+          echo "✅ Validación pasada: $TOTAL_FILES archivos, $TOTAL_FEATURES features totales"
+
       - name: Check if data changed
         id: check_changes
         run: |
           if git diff --quiet web/; then
             echo "changed=false" >> $GITHUB_OUTPUT
-          else
-            echo "changed=true" >> $GITHUB_OUTPUT
-            echo "date=$(date -u +'%Y-%m-%d %H:%M UTC')" >> $GITHUB_OUTPUT
-            # Calcular diff stats
-            echo "additions=$(git diff --numstat web/ | awk '{s+=$1} END {print s+0}')" >> $GITHUB_OUTPUT
-            echo "deletions=$(git diff --numstat web/ | awk '{s+=$2} END {print s+0}')" >> $GITHUB_OUTPUT
-            echo "files=$(git diff --name-only web/ | wc -l)" >> $GITHUB_OUTPUT
+            echo "No changes detected. Data source may not have updated since last run."
+            exit 0
           fi
+
+          echo "changed=true" >> $GITHUB_OUTPUT
+          echo "date=$(date -u +'%Y-%m-%d %H:%M UTC')" >> $GITHUB_OUTPUT
+
+          # Calcular diff stats
+          DIFF_STATS=$(git diff --numstat web/)
+          ADDITIONS=$(echo "$DIFF_STATS" | awk '{s+=$1} END {print s+0}')
+          DELETIONS=$(echo "$DIFF_STATS" | awk '{s+=$2} END {print s+0}')
+          FILES=$(git diff --name-only web/ | wc -l)
+
+          echo "additions=$ADDITIONS" >> $GITHUB_OUTPUT
+          echo "deletions=$DELETIONS" >> $GITHUB_OUTPUT
+          echo "files=$FILES" >> $GITHUB_OUTPUT
+
+          # Validar que el diff no sea anómalamente grande (>50% del tamaño total)
+          TOTAL_LINES=$(git diff --stat web/ | tail -1 | grep -oE '[0-9]+ insertion' | grep -oE '[0-9]+' || echo "0")
+          if [ "$TOTAL_LINES" -gt 50000 ]; then
+            echo "⚠️ WARNING: Large diff detected ($TOTAL_LINES insertions). Review manually."
+            echo "large_diff=true" >> $GITHUB_OUTPUT
+          else
+            echo "large_diff=false" >> $GITHUB_OUTPUT
+          fi
+
+          echo "Diff stats: +$ADDITIONS / -$DELETIONS across $FILES files ($TOTAL_LINES insertions)"
 
       - name: Create Pull Request if data changed
         if: steps.check_changes.outputs.changed == 'true'
@@ -61,6 +177,9 @@ jobs:
             - Updated: ${{ steps.check_changes.outputs.date }}
             - Files: web/*.geojson
             - Changes: +${{ steps.check_changes.outputs.additions }} / -${{ steps.check_changes.outputs.deletions }} (${{ steps.check_changes.outputs.files }} files)
+            - Total features: ${{ steps.validate.outputs.total_features }}
+
+            **Validation**: ✅ All GeoJSON files valid (FeatureCollection, expected properties)
           branch: data/weekly-update
           delete-branch: true
           labels: automated-update

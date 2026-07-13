@@ -16,53 +16,75 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
-
       - name: Install GitHub CLI
         run: sudo apt-get update && sudo apt-get install -y gh
 
-      - name: Wait for checks to register
+      - name: Wait for all checks to pass
         run: |
-          echo "Waiting for PR checks to register..."
-          for i in $(seq 1 30); do
-            CHECKS=$(gh pr checks ${{ github.event.pull_request.number }} --json state --jq '.[].state' 2>/dev/null || echo "")
-            if [ -n "$CHECKS" ]; then
-              echo "Checks found: $CHECKS"
-              break
-            fi
-            echo "  No checks yet, waiting... ($i/30)"
-            sleep 1
-          done
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          MAX_ATTEMPTS=120
+          INTERVAL=5
 
-      - name: Wait for checks to pass
-        run: |
-          echo "Waiting for all checks to pass..."
-          for i in $(seq 1 60); do
-            STATE=$(gh pr checks ${{ github.event.pull_request.number }} --json conclusion --jq '.[0].conclusion' 2>/dev/null || echo "")
-            if [ "$STATE" = "SUCCESS" ]; then
-              echo "✅ All checks passed"
-              break
-            elif [ "$STATE" = "FAILURE" ] || [ "$STATE" = "ACTION_REQUIRED" ] || [ "$STATE" = "TIMED_OUT" ]; then
+          echo "Waiting for PR #$PR_NUMBER checks to pass..."
+
+          for i in $(seq 1 $MAX_ATTEMPTS); do
+            # Obtir estado de TODOS los checks
+            STATE=$(gh pr checks $PR_NUMBER --json state --jq '.[].state' 2>/dev/null || echo "")
+
+            # Si no hay checks aún, esperar
+            if [ -z "$STATE" ]; then
+              echo "  No checks registered yet ($((i * INTERVAL))s)..."
+              sleep $INTERVAL
+              continue
+            fi
+
+            # Verificar si hay fallos
+            FAILURES=$(echo "$STATE" | grep -cE '(FAILURE|ACTION_REQUIRED|TIMED_OUT)' || true)
+            if [ "$FAILURES" -gt 0 ]; then
               echo "❌ Checks failed — not merging"
-              gh pr comment ${{ github.event.pull_request.number }} \
+              gh pr comment $PR_NUMBER \
                 --body "⚠️ **Auto-merge cancelled**: checks failed. Please review manually."
               exit 1
             fi
-            if [ "$i" -eq 60 ]; then
-              echo "⚠️ Timeout waiting for checks — attempting merge anyway"
+
+            # Si todos están pass/skipped/success
+            PASSED=$(echo "$STATE" | grep -cE '(SUCCESS|SKIPPED|PASSING|PASSED)' || true)
+            TOTAL=$(echo "$STATE" | wc -l)
+
+            if [ "$PASSED" -eq "$TOTAL" ] && [ "$TOTAL" -gt 0 ]; then
+              echo "✅ All $TOTAL checks passed"
+              break
             fi
-            sleep 1
+
+            # Mostrar progreso
+            RUNNING=$(echo "$STATE" | grep -cvE '(SUCCESS|SKIPPED|PASSING|PASSED|FAILURE|ACTION_REQUIRED|TIMED_OUT)' || true)
+            if [ "$RUNNING" -gt 0 ]; then
+              echo "  $PASSED/$TOTAL passed, $RUNNING running ($((i * INTERVAL))s)..."
+            fi
+
+            sleep $INTERVAL
           done
+
+          if [ "$i" -gt "$MAX_ATTEMPTS" ]; then
+            echo "⚠️ Timeout — checking final state..."
+            FINAL_STATE=$(gh pr checks $PR_NUMBER --json state --jq '.[].state' 2>/dev/null || echo "")
+            FAILURES=$(echo "$FINAL_STATE" | grep -cE '(FAILURE|ACTION_REQUIRED|TIMED_OUT)' || true)
+            if [ "$FAILURES" -gt 0 ]; then
+              echo "❌ Checks failed at timeout"
+              exit 1
+            fi
+            echo "✅ Final state is clean, proceeding with merge"
+          fi
 
       - name: Auto-merge with squash
         run: |
-          echo "Merging PR #${{ github.event.pull_request.number }}..."
-          gh pr merge ${{ github.event.pull_request.number }} \
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          echo "Merging PR #$PR_NUMBER..."
+          gh pr merge $PR_NUMBER \
             --squash \
             --delete-branch \
             --subject "chore: weekly data update from geoportal.madrid.es"
-          echo "✅ PR #${{ github.event.pull_request.number }} merged"
+          echo "✅ PR #$PR_NUMBER merged"
 
       - name: Remove label after merge
         if: success()
