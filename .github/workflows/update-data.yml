@@ -161,6 +161,119 @@ jobs:
 
           echo "Diff stats: +$ADDITIONS / -$DELETIONS across $FILES files ($TOTAL_LINES insertions)"
 
+      - name: Generate zone-level change report
+        id: zone_report
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+
+          REPORT_FILE=".github/zone-report.md"
+
+          python3 << 'PYEOF'
+          import json, os
+          from collections import defaultdict
+
+          def read_geojson(path):
+              with open(path) as f:
+                  return json.load(f)
+
+          def count_by_zona(geojson):
+              counts = defaultdict(int)
+              no_zona = 0
+              for feat in geojson.get("features", []):
+                  z = feat["properties"].get("zona")
+                  if z is None or z == "None" or z == "--":
+                      no_zona += 1
+                  else:
+                      counts[z] += 1
+              return dict(counts), no_zona
+
+          # Calles (bandas) by zona
+          calles = read_geojson("web/calles.geojson")
+          calles_by_zona, calles_no_zona = count_by_zona(calles)
+
+          # Parquimetros
+          parq = read_geojson("web/parquimetros.geojson")
+          parq_total = len(parq.get("features", []))
+
+          # Crosses by zona
+          crosses = read_geojson("web/crosses.geojson")
+          crosses_by_zona, crosses_no_zona = count_by_zona(crosses)
+
+          # Zonas barrios
+          zonas = read_geojson("web/zonas.geojson")
+          barrios = {z["properties"]["zona"]: z["properties"]["name"] for z in zonas.get("features", [])}
+
+          # Generate markdown report
+          lines = []
+          lines.append("## Parking by Zone")
+          lines.append("")
+          lines.append("### Parking Spaces by Zone")
+          lines.append("")
+          lines.append("| Zone | Barrio | Spaces |")
+          lines.append("|------|--------|--------|")
+
+          sorted_zonas = sorted(calles_by_zona.keys())
+          for z in sorted_zonas:
+              name = barrios.get(z, z)
+              count = calles_by_zona[z]
+              lines.append(f"| {z} | {name} | {count:,} |")
+
+          if calles_no_zona > 0:
+              lines.append(f"| -- | (sin zona) | {calles_no_zona:,} |")
+
+          lines.append(f"| **Total** | | **{sum(calles_by_zona.values()):,}** |")
+          lines.append("")
+
+          # Crosses summary
+          lines.append("### Crosses (Bandas entre 2 zonas)")
+          lines.append("")
+          lines.append("| Zone | Barrio | Spaces |")
+          lines.append("|------|--------|--------|")
+
+          for z in sorted(crosses_by_zona.keys()):
+              name = barrios.get(z, z)
+              count = crosses_by_zona[z]
+              lines.append(f"| {z} | {name} | {count} |")
+
+          if crosses_no_zona > 0:
+              lines.append(f"| -- | (sin zona) | {crosses_no_zona} |")
+
+          lines.append(f"| **Total** | | **{sum(crosses_by_zona.values()):,}** |")
+          lines.append("")
+
+          # Parquimetros
+          lines.append(f"**Parquímetros**: {parq_total} total (zona no asignada en fuente)")
+          lines.append("")
+
+          report = "\n".join(lines)
+
+          # Save report file
+          with open("ZONE_REPORT.md", "w") as f:
+              f.write(report)
+
+          # GITHUB_OUTPUT values (use os.environ since PYEOF is single-quoted)
+          total_spaces = sum(calles_by_zona.values())
+          total_crosses = sum(crosses_by_zona.values())
+          zones_with_data = len(calles_by_zona)
+          github_output = os.environ["GITHUB_OUTPUT"]
+
+          with open(github_output, "a") as f:
+              f.write(f"total_spaces={total_spaces}\n")
+              f.write(f"total_crosses={total_crosses}\n")
+              f.write(f"parquimetros={parq_total}\n")
+              f.write(f"zones_with_data={zones_with_data}\n")
+
+          print(f"Zone report: {zones_with_data} zones, {total_spaces:,} spaces, {total_crosses} crosses, {parq_total} parquimetros")
+          print(report)
+
+          PYEOF
+
+          echo "Zone report generated: $REPORT_FILE"
+          cat ZONE_REPORT.md
+          echo "---"
+          cat /tmp/zone_report_summary.txt
+
       - name: Create Pull Request if data changed
         if: steps.check_changes.outputs.changed == 'true'
         uses: peter-evans/create-pull-request@v8
@@ -180,6 +293,18 @@ jobs:
             - Total features: ${{ steps.validate.outputs.total_features }}
 
             **Validation**: ✅ All GeoJSON files valid (FeatureCollection, expected properties)
+
+            **Zone Summary**:
+            - Parking spaces by zone: ${{ steps.zone_report.outputs.total_spaces || 'see report below' }}
+            - Crosses (inter-zone): ${{ steps.zone_report.outputs.total_crosses || 'see report below' }}
+            - Parquímetros: ${{ steps.zone_report.outputs.parquimetros || 'N/A' }}
+
+            ## 📊 Week by Zone
+
+            | Zone | Barrio | Spaces |
+            |------|--------|--------|
+
+            Please review and merge if changes are acceptable.
           branch: data/weekly-update
           delete-branch: true
           labels: automated-update
