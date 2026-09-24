@@ -1,11 +1,6 @@
 "use strict";
 
 (function () {
-    var restrictionsControl = L.control.layers(null, {}, {
-        collapsed: true,
-        position: 'topright'
-    }).addTo(map);
-
     function restrictionPopup(label, sourceUrl) {
         var html = '<strong>' + escape_html(label) + '</strong>';
         html += '<br>Ámbito geográfico oficial de restricción.';
@@ -15,7 +10,7 @@
     }
 
     function loadRestriction(config) {
-        load_json(config.path, function (response) {
+        load_json(config.path, function(response) {
             var layer = L.geoJSON(response, {
                 style: {
                     color: config.color,
@@ -23,17 +18,26 @@
                     dashArray: config.dashArray || null,
                     fillOpacity: config.fillOpacity || 0.02
                 },
-                onEachFeature: function (feature, polygon) {
+                onEachFeature: function(feature, polygon) {
                     polygon.bindPopup(restrictionPopup(config.label, config.sourceUrl), {maxWidth: 360});
                 }
             });
-            restrictionsControl.addOverlay(layer, config.label);
-        }, function (status) {
+            register_decision_layer(
+                'restrictions',
+                config.id,
+                config.label,
+                layer,
+                false,
+                config.order
+            );
+        }, function(status) {
             console.warn(config.label + ' layer unavailable. HTTP status:', status);
         });
     }
 
     loadRestriction({
+        id: 'restriction:zbe-madrid',
+        order: 1,
         path: 'zbe-madrid.geojson',
         label: 'Madrid ZBE',
         color: '#555',
@@ -42,6 +46,8 @@
         sourceUrl: 'https://sigma.madrid.es/hosted/rest/services/GEOPORTAL/SERVICIO_DE_ESTACIONAMIENTO_REGULADO/MapServer/62'
     });
     loadRestriction({
+        id: 'restriction:zbedep-centro',
+        order: 2,
         path: 'zbedep-centro.geojson',
         label: 'ZBEDEP Distrito Centro',
         color: '#7b1fa2',
@@ -50,6 +56,8 @@
         sourceUrl: 'https://sigma.madrid.es/hosted/rest/services/GEOPORTAL/SERVICIO_DE_ESTACIONAMIENTO_REGULADO/MapServer/61'
     });
     loadRestriction({
+        id: 'restriction:zbedep-plaza-eliptica',
+        order: 3,
         path: 'zbedep-plaza-eliptica.geojson',
         label: 'ZBEDEP Plaza Elíptica',
         color: '#b71c1c',
