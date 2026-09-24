@@ -8,14 +8,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_DIR"
 
+CURL_COMMON=(--fail --silent --show-error --location --retry 3 --retry-all-errors)
 
 # Descargar datos
 echo "⬇️  Descargando bandas de aparcamiento (SHP)..."
 mkdir -p sources
 cd sources
-curl -L "https://geoportal.madrid.es/fsdescargas/IDEAM_WBGEOPORTAL/MOVILIDAD/ZONA_SER/SHP_ZIP.zip" \
--o BARRIOS_APARCAMIENTOS_SER.zip \
---progress-bar
+curl "${CURL_COMMON[@]}" \
+  "https://geoportal.madrid.es/fsdescargas/IDEAM_WBGEOPORTAL/MOVILIDAD/ZONA_SER/SHP_ZIP.zip" \
+  -o BARRIOS_APARCAMIENTOS_SER.zip
 echo "✅ ZIP descargado"
 echo ""
 
@@ -28,19 +29,23 @@ echo ""
 
 # Descargar barrios y parquímetros desde el servicio REST
 echo "⬇️  Descargando barrios SER desde REST API..."
-curl -sL "https://sigma.madrid.es/hosted/rest/services/GEOPORTAL/SERVICIO_DE_ESTACIONAMIENTO_REGULADO/MapServer/3/query?where=1%3D1&outFields=*&outSR=4326&f=geojson" \
+curl "${CURL_COMMON[@]}" \
+  "https://sigma.madrid.es/hosted/rest/services/GEOPORTAL/SERVICIO_DE_ESTACIONAMIENTO_REGULADO/MapServer/3/query?where=1%3D1&outFields=*&outSR=4326&f=geojson" \
   -o barrios.geojson
 echo "✅ Barrios descargados"
 
 echo "⬇️  Descargando parquímetros desde REST API (con paginación)..."
 PARQ_URL="https://sigma.madrid.es/hosted/rest/services/GEOPORTAL/SERVICIO_DE_ESTACIONAMIENTO_REGULADO/MapServer/5/query"
-PARQ_TOTAL=$(curl -sL "${PARQ_URL}?where=1%3D1&returnCountOnly=true&f=json" | jq '.count')
+PARQ_TOTAL=$(curl "${CURL_COMMON[@]}" "${PARQ_URL}?where=1%3D1&returnCountOnly=true&f=json" | jq -er '.count | numbers')
 PARQ_PAGE=2000
 PARQ_OFFSET=0
 PARQ_TMP=$(mktemp -d)
 while [ "$PARQ_OFFSET" -lt "$PARQ_TOTAL" ]; do
-  curl -sL "${PARQ_URL}?where=1%3D1&outFields=*&outSR=4326&f=geojson&resultOffset=${PARQ_OFFSET}&resultRecordCount=${PARQ_PAGE}" \
+  curl "${CURL_COMMON[@]}" \
+    "${PARQ_URL}?where=1%3D1&outFields=*&outSR=4326&f=geojson&resultOffset=${PARQ_OFFSET}&resultRecordCount=${PARQ_PAGE}" \
     -o "${PARQ_TMP}/page_${PARQ_OFFSET}.geojson"
+  jq -e '.type == "FeatureCollection" and (.features | type == "array")' \
+    "${PARQ_TMP}/page_${PARQ_OFFSET}.geojson" > /dev/null
   PARQ_OFFSET=$((PARQ_OFFSET + PARQ_PAGE))
 done
 jq -s '{type: "FeatureCollection", features: [.[].features[]]}' "${PARQ_TMP}"/page_*.geojson > parquimetros_raw.geojson
@@ -57,6 +62,10 @@ echo "🔍 Verificando integridad de datos..."
 SHP="sources/SER_BANDA_APARCAMIENTO.shp"
 if [ -f "$SHP" ]; then
   COUNT=$(ogrinfo -ro "$SHP" SER_BANDA_APARCAMIENTO -so 2>/dev/null | grep "Feature Count:" | grep -oE "[0-9]+")
+  if [ -z "$COUNT" ] || [ "$COUNT" -le 0 ]; then
+    echo "   ✗ SHP sin features válidas: $SHP"
+    exit 1
+  fi
   echo "   ✓ SER_BANDA_APARCAMIENTO.shp: $COUNT features"
 else
   echo "   ✗ FALTA: $SHP"
@@ -65,21 +74,29 @@ fi
 
 # GeoJSON de barrios y parquímetros
 for json in sources/barrios.geojson sources/parquimetros_raw.geojson; do
-  if [ -f "$json" ]; then
-    COUNT=$(jq '.features | length' "$json" 2>/dev/null || echo "?")
-    echo "   ✓ $(basename "$json"): $COUNT features"
-  else
+  if [ ! -f "$json" ]; then
     echo "   ✗ FALTA: $json"
     exit 1
   fi
+
+  if ! jq -e '.type == "FeatureCollection" and (.features | type == "array")' "$json" > /dev/null; then
+    echo "   ✗ ESQUEMA GeoJSON INVÁLIDO: $json"
+    exit 1
+  fi
+
+  COUNT=$(jq '.features | length' "$json")
+  if [ "$COUNT" -le 0 ]; then
+    echo "   ✗ SIN FEATURES: $json"
+    exit 1
+  fi
+  echo "   ✓ $(basename "$json"): $COUNT features"
 done
 echo "✅ Todos los datos intactos"
 echo ""
 
 # Procesar y generar GeoJSON
-echo "⚙️  Procesando datos (esto puede tardar ~2 min)..."
-bash src/process_shp.sh > /tmp/process.log 2>&1
-if [ $? -eq 0 ]; then
+echo "⚙️  Procesando datos..."
+if bash src/process_shp.sh > /tmp/process.log 2>&1; then
   echo "✅ GeoJSON generado correctamente"
 else
   echo "❌ Error procesando datos:"
@@ -88,7 +105,7 @@ else
 fi
 echo ""
 
-# Verificar salida (solo archivos principales)
+# Verificar salida (solo archivos principales; la validación completa vive en validate_geojson.py)
 echo "✓ Verificando GeoJSON generado:"
 for geojson in web/zonas.geojson web/objects.geojson; do
   if [ -f "$geojson" ]; then
