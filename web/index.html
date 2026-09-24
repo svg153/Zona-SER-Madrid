@@ -25,6 +25,10 @@
         .ser_legend_item { display: flex; gap: 8px; align-items: flex-start; margin-top: 7px; }
         .ser_swatch { display: inline-block; width: 16px; height: 5px; margin-top: 6px; border-radius: 3px; flex: 0 0 16px; }
         .ser_legend_source { margin-top: 8px; padding-top: 7px; border-top: 1px solid #ddd; font-size: 11px; }
+        .parking_marker { background: transparent; border: 0; }
+        .municipal_park_ride_marker { width: 32px; height: 32px; border-radius: 7px 7px 7px 2px; background: #fff; border: 2px solid #222; box-shadow: 0 1px 4px rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center; gap: 1px; font-family: system-ui, sans-serif; }
+        .parking_marker_p { font-size: 18px; font-weight: 800; line-height: 1; }
+        .parking_marker_transfer { font-size: 12px; font-weight: 700; line-height: 1; }
         @media (max-width: 700px) {
             .ser_legend { max-width: 200px; max-height: 40vh; overflow-y: auto; font-size: 12px; }
         }
@@ -34,5 +38,6 @@
 <body>
     <div id="map"></div>
     <script src="script.js"></script>
+    <script src="parking-layers.js"></script>
 </body>
 </html>
