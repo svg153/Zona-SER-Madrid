@@ -88,11 +88,11 @@ jobs:
             echo "  ✓ $geojson: $COUNT features"
           done
 
-          # Validar que objetos.geojson tenga las propiedades esperadas (muestra de 1 feature)
+          # Validar que objects.geojson tenga las propiedades esperadas (muestra de 1 feature)
           if [ -f "web/objects.geojson" ]; then
-            OBJ_PROPS=$(jq -r '.features[0] // empty | keys | join(",")' web/objects.geojson 2>/dev/null || echo "")
+            OBJ_PROPS=$(jq -r '.features[0].properties // empty | keys | join(",")' web/objects.geojson 2>/dev/null || echo "")
             if echo "$OBJ_PROPS" | grep -q "description"; then
-              echo "  ✓ objects.geojson has expected properties: $OBJ_PROPS"
+              echo "  ✓ objects.geojson has expected property: description"
             else
               WARNINGS="${WARNINGS}⚠ objects.geojson may be missing 'description' property\n"
             fi
@@ -100,8 +100,8 @@ jobs:
 
           # Validar que calles.geojson tenga zona (spatial join con barrios)
           if [ -f "web/calles.geojson" ]; then
-            CALLE_PROPS=$(jq -r '.features[0] // empty | keys | join(",")' web/calles.geojson 2>/dev/null || echo "")
-            if echo "$CALLES_PROPS" | grep -q "zona"; then
+            CALLE_PROPS=$(jq -r '.features[0].properties // empty | keys | join(",")' web/calles.geojson 2>/dev/null || echo "")
+            if echo "$CALLE_PROPS" | grep -q "zona"; then
               echo "  ✓ calles.geojson has spatial join property: zona"
             else
               WARNINGS="${WARNINGS}⚠ calles.geojson may be missing 'zona' property from spatial join\n"
