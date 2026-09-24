@@ -35,98 +35,10 @@ jobs:
       - name: Validate updated GeoJSON files
         id: validate
         run: |
-          set -euo pipefail
-          ERRORS=""
-          WARNINGS=""
-
-          # Definir archivos esperados y mínimos
-          declare -A MIN_FEATURES
-          MIN_FEATURES["web/zonas.geojson"]=1
-          MIN_FEATURES["web/objects.geojson"]=1
-          MIN_FEATURES["web/calles.geojson"]=1
-          MIN_FEATURES["web/parquimetros.geojson"]=1
-          MIN_FEATURES["web/crosses.geojson"]=0
-
-          TOTAL_FEATURES=0
-          TOTAL_FILES=0
-
-          for geojson in web/zonas.geojson web/objects.geojson web/calles.geojson web/parquimetros.geojson web/crosses.geojson; do
-            if [ ! -f "$geojson" ]; then
-              ERRORS="${ERRORS}✗ MISSING: $geojson\n"
-              continue
-            fi
-
-            # Validar JSON
-            if ! jq empty "$geojson" 2>/dev/null; then
-              ERRORS="${ERRORS}✗ INVALID JSON: $geojson\n"
-              continue
-            fi
-
-            # Validar estructura GeoJSON
-            TYPE=$(jq -r '.type // empty' "$geojson" 2>/dev/null || echo "")
-            if [ "$TYPE" != "FeatureCollection" ]; then
-              ERRORS="${ERRORS}✗ NOT FeatureCollection: $geojson (got: $TYPE)\n"
-              continue
-            fi
-
-            # Contar features
-            COUNT=$(jq '.features | length' "$geojson" 2>/dev/null || echo "-1")
-            if [ "$COUNT" -lt 0 ] 2>/dev/null; then
-              ERRORS="${ERRORS}✗ CANNOT COUNT features: $geojson\n"
-              continue
-            fi
-
-            TOTAL_FEATURES=$((TOTAL_FEATURES + COUNT))
-            TOTAL_FILES=$((TOTAL_FILES + 1))
-
-            # Mínimos por archivo
-            MIN=${MIN_FEATURES[$geojson]:-0}
-            if [ "$COUNT" -lt "$MIN" ]; then
-              ERRORS="${ERRORS}✗ TOO FEW FEATURES: $geojson ($COUNT < $MIN minimum)\n"
-            fi
-
-            echo "  ✓ $geojson: $COUNT features"
-          done
-
-          # Validar que objects.geojson tenga las propiedades esperadas (muestra de 1 feature)
-          if [ -f "web/objects.geojson" ]; then
-            OBJ_PROPS=$(jq -r '.features[0].properties // empty | keys | join(",")' web/objects.geojson 2>/dev/null || echo "")
-            if echo "$OBJ_PROPS" | grep -q "description"; then
-              echo "  ✓ objects.geojson has expected property: description"
-            else
-              WARNINGS="${WARNINGS}⚠ objects.geojson may be missing 'description' property\n"
-            fi
-          fi
-
-          # Validar que calles.geojson tenga zona (spatial join con barrios)
-          if [ -f "web/calles.geojson" ]; then
-            CALLE_PROPS=$(jq -r '.features[0].properties // empty | keys | join(",")' web/calles.geojson 2>/dev/null || echo "")
-            if echo "$CALLE_PROPS" | grep -q "zona"; then
-              echo "  ✓ calles.geojson has spatial join property: zona"
-            else
-              WARNINGS="${WARNINGS}⚠ calles.geojson may be missing 'zona' property from spatial join\n"
-            fi
-          fi
-
-          # Reporte
-          echo "total_features=$TOTAL_FEATURES" >> $GITHUB_OUTPUT
-          echo "total_files=$TOTAL_FILES" >> $GITHUB_OUTPUT
-
-          if [ -n "$ERRORS" ]; then
-            echo "### ❌ Validación fallida" >> $GITHUB_STEP_SUMMARY
-            echo -e "$ERRORS" >> $GITHUB_STEP_SUMMARY
-            echo "validation_failed=true" >> $GITHUB_OUTPUT
-            echo "ERRORS<<EOF" >> $GITHUB_OUTPUT
-            echo -e "$ERRORS" >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
-            exit 1
-          fi
-
-          if [ -n "$WARNINGS" ]; then
-            echo -e "$WARNINGS"
-          fi
-
-          echo "✅ Validación pasada: $TOTAL_FILES archivos, $TOTAL_FEATURES features totales"
+          python3 scripts/validate_geojson.py \
+            --web-dir web \
+            --github-output "$GITHUB_OUTPUT" \
+            --github-step-summary "$GITHUB_STEP_SUMMARY"
 
       - name: Check if data changed
         id: check_changes
@@ -166,111 +78,12 @@ jobs:
         if: steps.check_changes.outputs.changed == 'true'
         run: |
           set -euo pipefail
-
           REPORT_FILE="${RUNNER_TEMP}/zone-report.md"
-          export REPORT_FILE
 
-          python3 << 'PYEOF'
-          import json, os
-          from collections import defaultdict
-
-          def read_geojson(path):
-              with open(path) as f:
-                  return json.load(f)
-
-          def count_by_zona(geojson):
-              counts = defaultdict(int)
-              no_zona = 0
-              for feat in geojson.get("features", []):
-                  z = feat["properties"].get("zona")
-                  if z is None or z == "None" or z == "--":
-                      no_zona += 1
-                  else:
-                      counts[z] += 1
-              return dict(counts), no_zona
-
-          # Calles (bandas) by zona
-          calles = read_geojson("web/calles.geojson")
-          calles_by_zona, calles_no_zona = count_by_zona(calles)
-
-          # Parquimetros
-          parq = read_geojson("web/parquimetros.geojson")
-          parq_total = len(parq.get("features", []))
-
-          # Crosses by zona
-          crosses = read_geojson("web/crosses.geojson")
-          crosses_by_zona, crosses_no_zona = count_by_zona(crosses)
-
-          # Zonas barrios
-          zonas = read_geojson("web/zonas.geojson")
-          barrios = {z["properties"]["zona"]: z["properties"]["name"] for z in zonas.get("features", [])}
-
-          # Generate markdown report
-          lines = []
-          lines.append("## Parking by Zone")
-          lines.append("")
-          lines.append("### Parking Spaces by Zone")
-          lines.append("")
-          lines.append("| Zone | Barrio | Spaces |")
-          lines.append("|------|--------|--------|")
-
-          sorted_zonas = sorted(calles_by_zona.keys())
-          for z in sorted_zonas:
-              name = barrios.get(z, z)
-              count = calles_by_zona[z]
-              lines.append(f"| {z} | {name} | {count:,} |")
-
-          if calles_no_zona > 0:
-              lines.append(f"| -- | (sin zona) | {calles_no_zona:,} |")
-
-          lines.append(f"| **Total** | | **{sum(calles_by_zona.values()):,}** |")
-          lines.append("")
-
-          # Crosses summary
-          lines.append("### Crosses (Bandas entre 2 zonas)")
-          lines.append("")
-          lines.append("| Zone | Barrio | Spaces |")
-          lines.append("|------|--------|--------|")
-
-          for z in sorted(crosses_by_zona.keys()):
-              name = barrios.get(z, z)
-              count = crosses_by_zona[z]
-              lines.append(f"| {z} | {name} | {count} |")
-
-          if crosses_no_zona > 0:
-              lines.append(f"| -- | (sin zona) | {crosses_no_zona} |")
-
-          lines.append(f"| **Total** | | **{sum(crosses_by_zona.values()):,}** |")
-          lines.append("")
-
-          # Parquimetros
-          lines.append(f"**Parquímetros**: {parq_total} total (zona no asignada en fuente)")
-          lines.append("")
-
-          report = "\n".join(lines)
-
-          # Keep the report outside the repository worktree so it cannot leak into the data PR.
-          report_file = os.environ["REPORT_FILE"]
-          with open(report_file, "w") as f:
-              f.write(report)
-
-          total_spaces = sum(calles_by_zona.values())
-          total_crosses = sum(crosses_by_zona.values())
-          zones_with_data = len(calles_by_zona)
-          github_output = os.environ["GITHUB_OUTPUT"]
-
-          with open(github_output, "a") as f:
-              f.write(f"total_spaces={total_spaces}\n")
-              f.write(f"total_crosses={total_crosses}\n")
-              f.write(f"parquimetros={parq_total}\n")
-              f.write(f"zones_with_data={zones_with_data}\n")
-              f.write("report<<ZONE_REPORT_EOF\n")
-              f.write(report)
-              f.write("\nZONE_REPORT_EOF\n")
-
-          print(f"Zone report: {zones_with_data} zones, {total_spaces:,} spaces, {total_crosses} crosses, {parq_total} parquimetros")
-
-          PYEOF
+          python3 scripts/zone_report.py \
+            --web-dir web \
+            --output "$REPORT_FILE" \
+            --github-output "$GITHUB_OUTPUT"
 
           test -s "$REPORT_FILE"
           echo "Zone report generated: $REPORT_FILE"
