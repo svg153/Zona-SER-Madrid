@@ -1,0 +1,1 @@
+{"type":"FeatureCollection","source":"https://www.crtm.es/tu-transporte-publico/intermodalidad/aparcaplust/","verifiedAt":"2026-09-24","features":[{"type":"Feature","geometry":{"type":"Point","coordinates":[-3.72685,40.44251]},"properties":{"kind":"regional_park_ride","name":"Ciudad Universitaria","spaces":1144,"minHours":5,"maxHours":16}}]}

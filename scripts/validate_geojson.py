@@ -19,6 +19,7 @@ EXPECTED_FILES = {
     "zbe-madrid.geojson": {"min_features": 1},
     "zbedep-centro.geojson": {"min_features": 1},
     "zbedep-plaza-eliptica.geojson": {"min_features": 1},
+    "aparcat.geojson": {"min_features": 1, "sample_property": "kind"},
 }
 
 

@@ -1,0 +1,122 @@
+{
+  "source": "https://www.crtm.es/tu-transporte-publico/intermodalidad/aparcaplust/",
+  "verifiedAt": "2026-09-24",
+  "coordinateNote": "Coordinates are pinned once for static rendering. Exact parking coordinates are used where identifiable in OpenStreetMap; otherwise the adjacent rail or metro station coordinate is used and marked as approximate.",
+  "rules": {
+    "freeWhenEligible": true,
+    "requiresPublicTransportTrip": true,
+    "acceptedMedia": [
+      "Tarjeta Transporte Público Personal física",
+      "Tarjeta Transporte Público Multi",
+      "Renfe&Tú"
+    ],
+    "validation": "Acreditar el uso del transporte público después de entrar al aparcamiento y antes de retirar el vehículo.",
+    "fallback": "Si no se cumplen las condiciones, se aplica la tarifa estándar de rotación del aparcamiento."
+  },
+  "parkings": [
+    {
+      "name": "Ciudad Universitaria",
+      "municipality": "Madrid",
+      "address": "Plaza Ramón y Cajal, 1",
+      "postalCode": "28040",
+      "spaces": 1144,
+      "minHours": 5,
+      "maxHours": 16,
+      "lat": 40.44251,
+      "lon": -3.72685,
+      "coordinatesApproximate": false,
+      "coordinateSource": "https://mapcarta.com/es/N3594825866"
+    },
+    {
+      "name": "Estación de El Barrial",
+      "municipality": "Madrid",
+      "address": "Rafael Botí, 64",
+      "postalCode": "28023",
+      "spaces": 449,
+      "minHours": 5,
+      "maxHours": 16,
+      "lat": 40.46533,
+      "lon": -3.80785,
+      "coordinatesApproximate": true,
+      "coordinateSource": "https://mapcarta.com/es/N9669569787"
+    },
+    {
+      "name": "Estación de Colmenar Viejo",
+      "municipality": "Colmenar Viejo",
+      "address": "Avenida Juan Pablo II",
+      "postalCode": "28770",
+      "spaces": 1837,
+      "minHours": 5,
+      "maxHours": 15,
+      "lat": 40.6452,
+      "lon": -3.77656,
+      "coordinatesApproximate": true,
+      "coordinateSource": "https://mapcarta.com/es/N2092341608"
+    },
+    {
+      "name": "Estación de Las Rozas",
+      "municipality": "Las Rozas",
+      "address": "San Sebastián",
+      "postalCode": "28231",
+      "spaces": 300,
+      "minHours": 5,
+      "maxHours": 16,
+      "lat": 40.49429,
+      "lon": -3.86794,
+      "coordinatesApproximate": true,
+      "coordinateSource": "https://mapcarta.com/es/N5318415085"
+    },
+    {
+      "name": "Estación de Pinar de las Rozas",
+      "municipality": "Las Rozas",
+      "address": "Avenida Gabriel Enrique de la Orden, 106",
+      "postalCode": "28230",
+      "spaces": 890,
+      "minHours": 5,
+      "maxHours": 16,
+      "lat": 40.52221,
+      "lon": -3.88375,
+      "coordinatesApproximate": false,
+      "coordinateSource": "https://mapcarta.com/es/W300959580"
+    },
+    {
+      "name": "Estación de Las Matas",
+      "municipality": "Las Rozas",
+      "address": "Plaza del Ferrocarril, s/n",
+      "postalCode": "28290",
+      "spaces": 203,
+      "minHours": 5,
+      "maxHours": 16,
+      "lat": 40.55201,
+      "lon": -3.89667,
+      "coordinatesApproximate": true,
+      "coordinateSource": "https://mapcarta.com/es/W204188155"
+    },
+    {
+      "name": "Estación de Majadahonda",
+      "municipality": "Majadahonda",
+      "address": "Carretera de El Plantío, s/n",
+      "postalCode": "28221",
+      "spaces": 402,
+      "minHours": 5,
+      "maxHours": 16,
+      "lat": 40.47434,
+      "lon": -3.84597,
+      "coordinatesApproximate": true,
+      "coordinateSource": "https://mapcarta.com/es/N5318466125"
+    },
+    {
+      "name": "Antiguo Matadero",
+      "municipality": "Pozuelo de Alarcón",
+      "address": "Calle de los Trenes",
+      "postalCode": "28223",
+      "spaces": 294,
+      "minHours": 5,
+      "maxHours": 15,
+      "lat": 40.44741,
+      "lon": -3.80006,
+      "coordinatesApproximate": true,
+      "coordinateSource": "https://mapcarta.com/29665604"
+    }
+  ]
+}
