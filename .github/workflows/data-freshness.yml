@@ -1,0 +1,44 @@
+name: Data Freshness Watch
+
+on:
+  schedule:
+    - cron: '30 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  freshness:
+    name: Weekly updater freshness
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Find latest successful weekly update
+        id: latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          LAST_SUCCESS=$(gh run list \
+            --workflow update-data.yml \
+            --status success \
+            --limit 1 \
+            --json updatedAt \
+            --jq '.[0].updatedAt // empty')
+
+          if [ -z "$LAST_SUCCESS" ]; then
+            echo "No successful Weekly Data Update run found" >&2
+            exit 1
+          fi
+
+          echo "last_success=$LAST_SUCCESS" >> "$GITHUB_OUTPUT"
+
+      - name: Check freshness threshold
+        run: |
+          python3 scripts/check_workflow_freshness.py \
+            --last-success "${{ steps.latest.outputs.last_success }}" \
+            --max-age-hours 216
