@@ -29,6 +29,28 @@ class NormalizeParkingsTests(unittest.TestCase):
         self.assertIn("Avenida de Portugal, 155", feature["properties"]["address"])
         self.assertEqual(feature["geometry"]["coordinates"], [-3.722, 40.413])
 
+    def test_same_normalizer_supports_public_municipal_parkings(self) -> None:
+        payload = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {"type": "Point", "coordinates": [-3.703, 40.416]},
+                    "properties": {"title": "Aparcamiento público de prueba"},
+                }
+            ],
+        }
+        source = "https://datos.madrid.es/dataset/202625-0-aparcamientos-publicos"
+        result = normalize(
+            payload,
+            kind="municipal_public_parking",
+            dataset_url=source,
+            fallback_name="Aparcamiento público municipal",
+        )
+        feature = result["features"][0]
+        self.assertEqual(feature["properties"]["kind"], "municipal_public_parking")
+        self.assertEqual(feature["properties"]["sourceUrl"], source)
+
     def test_legacy_graph_location_is_supported(self) -> None:
         payload = {
             "@graph": [
