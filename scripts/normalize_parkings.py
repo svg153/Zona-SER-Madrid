@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""Normalize Madrid municipal parking datasets to a small GeoJSON contract.
-
-The Madrid open-data portal has exposed equipment data both as GeoJSON
-FeatureCollections and as JSON-LD documents with an ``@graph`` array. This
-normalizer accepts both so the map does not depend on one portal generation.
-"""
+"""Normalize Madrid municipal parking datasets to a small GeoJSON contract."""
 
 from __future__ import annotations
 
@@ -15,7 +10,9 @@ import re
 from pathlib import Path
 from typing import Any
 
-DATASET_URL = "https://datos.madrid.es/dataset/300531-0-aparcamientos-publicos"
+DEFAULT_DATASET_URL = "https://datos.madrid.es/dataset/300531-0-aparcamientos-publicos"
+DEFAULT_KIND = "municipal_park_ride"
+DEFAULT_NAME = "Aparcamiento disuasorio municipal"
 
 
 def first_value(mapping: dict[str, Any], *keys: str) -> Any:
@@ -53,8 +50,9 @@ def address_text(value: Any) -> str:
         "district",
     ):
         item = value.get(key)
-        if item and clean_text(item) not in parts:
-            parts.append(clean_text(item))
+        cleaned = clean_text(item) if item else ""
+        if cleaned and cleaned not in parts:
+            parts.append(cleaned)
     return ", ".join(parts)
 
 
@@ -110,7 +108,13 @@ def nested_description(props: dict[str, Any]) -> str:
     )
 
 
-def normalized_feature(item: dict[str, Any]) -> dict[str, Any] | None:
+def normalized_feature(
+    item: dict[str, Any],
+    *,
+    kind: str,
+    dataset_url: str,
+    fallback_name: str,
+) -> dict[str, Any] | None:
     props = source_properties(item)
     coordinates = extract_coordinates(item)
     if coordinates is None and props is not item:
@@ -119,27 +123,18 @@ def normalized_feature(item: dict[str, Any]) -> dict[str, Any] | None:
         return None
 
     name = clean_text(
-        first_value(
-            props,
-            "title",
-            "name",
-            "nombre",
-            "NOMBRE",
-            "NAME",
-        )
-    )
-    if not name:
-        name = "Aparcamiento disuasorio municipal"
+        first_value(props, "title", "name", "nombre", "NOMBRE", "NAME")
+    ) or fallback_name
 
     address = address_text(first_value(props, "address", "direccion", "DIRECCION"))
     description = nested_description(props)
-    source_url = clean_text(first_value(props, "@id", "url", "URL")) or DATASET_URL
+    source_url = clean_text(first_value(props, "@id", "url", "URL")) or dataset_url
 
     return {
         "type": "Feature",
         "geometry": {"type": "Point", "coordinates": coordinates},
         "properties": {
-            "kind": "municipal_park_ride",
+            "kind": kind,
             "name": name,
             "address": address,
             "description": description,
@@ -157,37 +152,52 @@ def source_items(payload: dict[str, Any]) -> list[dict[str, Any]]:
     raise ValueError("Unsupported parking dataset: expected FeatureCollection or @graph")
 
 
-def normalize(payload: dict[str, Any]) -> dict[str, Any]:
+def normalize(
+    payload: dict[str, Any],
+    *,
+    kind: str = DEFAULT_KIND,
+    dataset_url: str = DEFAULT_DATASET_URL,
+    fallback_name: str = DEFAULT_NAME,
+) -> dict[str, Any]:
     features = []
     for item in source_items(payload):
-        feature = normalized_feature(item)
+        feature = normalized_feature(
+            item,
+            kind=kind,
+            dataset_url=dataset_url,
+            fallback_name=fallback_name,
+        )
         if feature is not None:
             features.append(feature)
 
     if not features:
         raise ValueError("Parking dataset contains no usable point features")
 
-    return {
-        "type": "FeatureCollection",
-        "source": DATASET_URL,
-        "features": features,
-    }
+    return {"type": "FeatureCollection", "source": dataset_url, "features": features}
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("input", type=Path)
     parser.add_argument("output", type=Path)
+    parser.add_argument("--kind", default=DEFAULT_KIND)
+    parser.add_argument("--dataset-url", default=DEFAULT_DATASET_URL)
+    parser.add_argument("--fallback-name", default=DEFAULT_NAME)
     args = parser.parse_args()
 
     payload = json.loads(args.input.read_text(encoding="utf-8-sig"))
-    normalized = normalize(payload)
+    normalized = normalize(
+        payload,
+        kind=args.kind,
+        dataset_url=args.dataset_url,
+        fallback_name=args.fallback_name,
+    )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
         json.dumps(normalized, ensure_ascii=False, separators=(",", ":")) + "\n",
         encoding="utf-8",
     )
-    print(f"Normalized {len(normalized['features'])} municipal park-and-ride locations")
+    print(f"Normalized {len(normalized['features'])} {args.kind} locations")
     return 0
 
 
