@@ -1,0 +1,46 @@
+{
+  "verifiedAt": "2026-09-24",
+  "source": "https://datos.madrid.es/dataset/200077-0-zona-ser",
+  "rules": {
+    "Verde": {
+      "label": "Zona verde",
+      "summary": "Prioridad residente",
+      "maxStay": "No residentes: máximo 2 h",
+      "cooldown": "Tras agotar el máximo: 1 h antes de volver al mismo barrio",
+      "price": "Tarifa SER variable según vehículo y recargos vigentes",
+      "color": "green"
+    },
+    "Azul": {
+      "label": "Zona azul",
+      "summary": "Estacionamiento rotacional",
+      "maxStay": "Máximo 4 h",
+      "cooldown": "Tras agotar el máximo: 1 h antes de volver al mismo barrio",
+      "price": "Tarifa SER variable según vehículo y recargos vigentes",
+      "color": "blue"
+    },
+    "Naranja": {
+      "label": "Disuasorio / larga estancia",
+      "summary": "Ámbito Diferenciado Disuasorio (antes larga estancia)",
+      "maxStay": "Hasta 12 h continuadas durante el horario del servicio",
+      "cooldown": "Sin rotación durante las 12 h abonadas con un único tique",
+      "price": "0,50 €/h; hasta 6 € por 12 h",
+      "color": "orange"
+    },
+    "Rojo": {
+      "label": "Ámbito hospitalario",
+      "summary": "Uso por motivos socio-sanitarios",
+      "maxStay": "Máximo 4 h",
+      "cooldown": "Consulta señalización y condiciones específicas del ámbito",
+      "price": "Tarifa reducida específica del ámbito hospitalario",
+      "color": "red"
+    },
+    "Alta Rotación": {
+      "label": "Alta rotación",
+      "summary": "Estancias muy cortas en zonas de alta demanda",
+      "maxStay": "Máximo general 45 min, salvo señalización específica",
+      "cooldown": "30 min antes de volver a alta rotación del mismo barrio",
+      "price": "Tarifa específica de alta rotación",
+      "color": "cyan"
+    }
+  }
+}

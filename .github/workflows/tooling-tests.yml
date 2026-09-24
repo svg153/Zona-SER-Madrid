@@ -5,6 +5,8 @@ on:
     paths:
       - 'scripts/**'
       - 'tests/**'
+      - 'web/script.js'
+      - 'web/ser-rules.json'
       - '.github/workflows/**'
   workflow_dispatch:
 
@@ -21,3 +23,6 @@ jobs:
 
       - name: Run offline unit tests
         run: python3 -m unittest discover -s tests -p 'test_*.py' -v
+
+      - name: Check map JavaScript syntax
+        run: node --check web/script.js
