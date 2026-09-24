@@ -31,14 +31,17 @@
         .regional_park_ride_marker { border-radius: 50%; border-width: 3px; }
         .parking_marker_p { font-size: 18px; font-weight: 800; line-height: 1; }
         .parking_marker_transfer { font-size: 12px; font-weight: 700; line-height: 1; }
+        .leaflet-control-layers-expanded { max-height: min(72vh, 640px); overflow-y: auto; }
         @media (max-width: 700px) {
-            .ser_legend { max-width: 200px; max-height: 40vh; overflow-y: auto; font-size: 12px; }
+            .ser_legend { max-width: 200px; max-height: 34vh; overflow-y: auto; font-size: 12px; }
+            .leaflet-control-layers-expanded { max-width: 82vw; max-height: 64vh; font-size: 12px; }
         }
     </style>
 </head>
 
 <body>
     <div id="map"></div>
+    <script src="layer-state.js"></script>
     <script src="script.js"></script>
     <script src="parking-layers.js"></script>
     <script src="restriction-layers.js"></script>
