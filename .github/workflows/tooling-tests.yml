@@ -5,7 +5,7 @@ on:
     paths:
       - 'scripts/**'
       - 'tests/**'
-      - 'web/script.js'
+      - 'web/*.js'
       - 'web/ser-rules.json'
       - '.github/workflows/**'
   workflow_dispatch:
@@ -25,4 +25,6 @@ jobs:
         run: python3 -m unittest discover -s tests -p 'test_*.py' -v
 
       - name: Check map JavaScript syntax
-        run: node --check web/script.js
+        run: |
+          node --check web/script.js
+          node --check web/parking-layers.js
