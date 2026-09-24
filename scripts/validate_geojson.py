@@ -15,6 +15,7 @@ EXPECTED_FILES = {
     "parquimetros.geojson": {"min_features": 1},
     "crosses.geojson": {"min_features": 0},
     "disuasorios.geojson": {"min_features": 1, "sample_property": "kind"},
+    "parkings-publicos.geojson": {"min_features": 1, "sample_property": "kind"},
 }
 
 

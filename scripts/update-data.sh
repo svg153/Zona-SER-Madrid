@@ -53,11 +53,16 @@ rm -rf "$PARQ_TMP"
 echo "✅ Parquímetros descargados ($PARQ_TOTAL features)"
 echo ""
 
-# Fuente oficial diaria de aparcamientos públicos municipales disuasorios.
+# Fuentes oficiales diarias de aparcamientos municipales.
 echo "⬇️  Descargando aparcamientos disuasorios municipales..."
 DISUASORIOS_URL="https://datos.madrid.es/dataset/300531-0-aparcamientos-publicos/resource/300531-0-aparcamientos-publicos-geo/download/300531-0-aparcamientos-publicos.geo"
 curl "${CURL_COMMON[@]}" "$DISUASORIOS_URL" -o disuasorios_raw.geojson
 echo "✅ Aparcamientos disuasorios descargados"
+
+echo "⬇️  Descargando aparcamientos públicos municipales..."
+PUBLICOS_URL="https://datos.madrid.es/dataset/202625-0-aparcamientos-publicos/resource/202625-4-aparcamientos-publicos-geo/download/202625-0-aparcamientos-publicos.geo"
+curl "${CURL_COMMON[@]}" "$PUBLICOS_URL" -o parkings_publicos_raw.geojson
+echo "✅ Aparcamientos públicos municipales descargados"
 echo ""
 
 cd ..
@@ -65,7 +70,6 @@ cd ..
 # Verificar datos descargados
 echo "🔍 Verificando integridad de datos..."
 
-# SHP de bandas de aparcamiento
 SHP="sources/SER_BANDA_APARCAMIENTO.shp"
 if [ -f "$SHP" ]; then
   COUNT=$(ogrinfo -ro "$SHP" SER_BANDA_APARCAMIENTO -so 2>/dev/null | grep "Feature Count:" | grep -oE "[0-9]+")
@@ -79,7 +83,6 @@ else
   exit 1
 fi
 
-# GeoJSON de barrios y parquímetros
 for json in sources/barrios.geojson sources/parquimetros_raw.geojson; do
   if [ ! -f "$json" ]; then
     echo "   ✗ FALTA: $json"
@@ -99,9 +102,14 @@ for json in sources/barrios.geojson sources/parquimetros_raw.geojson; do
   echo "   ✓ $(basename "$json"): $COUNT features"
 done
 
-# El portal de datos ha servido esta familia tanto como GeoJSON como JSON-LD.
-# La validación de contrato se realiza en el normalizador para soportar ambos formatos.
+# Estas familias se normalizan desde GeoJSON o desde el JSON-LD histórico.
 python3 scripts/normalize_parkings.py sources/disuasorios_raw.geojson web/disuasorios.geojson
+python3 scripts/normalize_parkings.py \
+  sources/parkings_publicos_raw.geojson \
+  web/parkings-publicos.geojson \
+  --kind municipal_public_parking \
+  --dataset-url "https://datos.madrid.es/dataset/202625-0-aparcamientos-publicos" \
+  --fallback-name "Aparcamiento público municipal"
 
 echo "✅ Todos los datos intactos"
 echo ""
@@ -117,9 +125,8 @@ else
 fi
 echo ""
 
-# Verificar salida (solo archivos principales; la validación completa vive en validate_geojson.py)
 echo "✓ Verificando GeoJSON generado:"
-for geojson in web/zonas.geojson web/objects.geojson web/disuasorios.geojson; do
+for geojson in web/zonas.geojson web/objects.geojson web/disuasorios.geojson web/parkings-publicos.geojson; do
   if [ -f "$geojson" ]; then
     COUNT=$(jq '.features | length' "$geojson" 2>/dev/null || echo "?")
     SIZE=$(du -h "$geojson" | cut -f1)
