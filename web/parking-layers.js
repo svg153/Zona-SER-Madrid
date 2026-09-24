@@ -38,58 +38,70 @@
 
         var html = '<strong>' + escape_html(props.name || fallbackName) + '</strong>';
         html += '<br><span>' + typeLabel + '</span>';
-        if (props.address) {
-            html += '<br><strong>Dirección:</strong> ' + escape_html(props.address);
-        }
-        if (props.spaces) {
-            html += '<br><strong>Plazas:</strong> ' + escape_html(props.spaces);
-        }
+        if (props.address) html += '<br><strong>Dirección:</strong> ' + escape_html(props.address);
+        if (props.spaces) html += '<br><strong>Plazas:</strong> ' + escape_html(props.spaces);
         if (kind === 'regional_park_ride') {
             html += '<br><strong>Estancia gratuita:</strong> ' + escape_html(props.minHours) + ' a ' + escape_html(props.maxHours) + ' h si se cumplen las condiciones del CRTM';
             html += '<br><strong>Requisito:</strong> realizar al menos un viaje en transporte público y acreditarlo antes de retirar el vehículo.';
-            if (props.coordinatesApproximate) {
-                html += '<br><small>Marcador aproximado sobre la estación adyacente.</small>';
-            }
+            if (props.coordinatesApproximate) html += '<br><small>Marcador aproximado sobre la estación adyacente.</small>';
         } else if (props.description) {
             html += '<br><strong>Información:</strong> ' + escape_html(props.description);
         }
         html += '<hr><small>La disponibilidad, tarifas y condiciones pueden cambiar. Consulta la ficha oficial antes de desplazarte.';
-        if (props.sourceUrl) {
-            html += ' · <a href="' + escape_html(props.sourceUrl) + '" target="_blank" rel="noopener noreferrer">Fuente oficial</a>';
-        }
-        if (props.verifiedAt) {
-            html += ' · verificado ' + escape_html(props.verifiedAt);
-        }
+        if (props.sourceUrl) html += ' · <a href="' + escape_html(props.sourceUrl) + '" target="_blank" rel="noopener noreferrer">Fuente oficial</a>';
+        if (props.verifiedAt) html += ' · verificado ' + escape_html(props.verifiedAt);
         html += '</small>';
         return html;
     }
 
-    function loadParkingLayer(path, kind, label, addByDefault) {
-        load_json(path, function (response) {
+    function loadParkingLayer(config) {
+        load_json(config.path, function(response) {
             var layer = L.geoJSON(response, {
-                pointToLayer: function (feature, latlng) {
-                    return L.marker(latlng, {icon: parkingIcon(kind)});
+                pointToLayer: function(feature, latlng) {
+                    return L.marker(latlng, {icon: parkingIcon(config.kind)});
                 },
-                onEachFeature: function (feature, marker) {
+                onEachFeature: function(feature, marker) {
                     marker.bindPopup(parkingPopup(feature), {maxWidth: 380});
                 }
             });
-
-            if (addByDefault) {
-                layer.addTo(map);
-            }
-            var overlays = {};
-            overlays[label] = layer;
-            L.control.layers(null, overlays, {
-                collapsed: true,
-                position: 'topright'
-            }).addTo(map);
-        }, function (status) {
-            console.warn(label + ' layer unavailable. HTTP status:', status);
+            register_decision_layer(
+                config.group,
+                config.id,
+                config.label,
+                layer,
+                config.defaultOn,
+                config.order
+            );
+        }, function(status) {
+            console.warn(config.label + ' layer unavailable. HTTP status:', status);
         });
     }
 
-    loadParkingLayer('disuasorios.geojson', 'municipal_park_ride', '🅿 Disuasorios municipales', true);
-    loadParkingLayer('aparcat.geojson', 'regional_park_ride', 'P+T Aparca+T CRTM', false);
-    loadParkingLayer('parkings-publicos.geojson', 'municipal_public_parking', 'P Parkings públicos municipales', false);
+    loadParkingLayer({
+        path: 'disuasorios.geojson',
+        kind: 'municipal_park_ride',
+        group: 'parkride',
+        id: 'parking:municipal-park-ride',
+        label: 'Disuasorios municipales',
+        defaultOn: true,
+        order: 1
+    });
+    loadParkingLayer({
+        path: 'aparcat.geojson',
+        kind: 'regional_park_ride',
+        group: 'parkride',
+        id: 'parking:aparca-t',
+        label: 'Aparca+T CRTM',
+        defaultOn: false,
+        order: 2
+    });
+    loadParkingLayer({
+        path: 'parkings-publicos.geojson',
+        kind: 'municipal_public_parking',
+        group: 'parking',
+        id: 'parking:public-municipal',
+        label: 'Públicos municipales',
+        defaultOn: false,
+        order: 1
+    });
 })();
