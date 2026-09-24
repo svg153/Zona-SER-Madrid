@@ -26,5 +26,6 @@ jobs:
 
       - name: Check map JavaScript syntax
         run: |
-          node --check web/script.js
-          node --check web/parking-layers.js
+          for file in web/*.js; do
+            node --check "$file"
+          done
