@@ -111,6 +111,10 @@ python3 scripts/normalize_parkings.py \
   --dataset-url "https://datos.madrid.es/dataset/202625-0-aparcamientos-publicos" \
   --fallback-name "Aparcamiento público municipal"
 
+# Aparca+T no expone actualmente una distribución estable identificable en el nuevo catálogo.
+# Se regenera desde el catálogo revisado y falla si lleva más de 120 días sin verificar.
+python3 scripts/build_aparcat_geojson.py sources/aparcat.json web/aparcat.geojson --max-age-days 120
+
 echo "✅ Todos los datos intactos"
 echo ""
 
@@ -126,7 +130,7 @@ fi
 echo ""
 
 echo "✓ Verificando GeoJSON generado:"
-for geojson in web/zonas.geojson web/objects.geojson web/disuasorios.geojson web/parkings-publicos.geojson; do
+for geojson in web/zonas.geojson web/objects.geojson web/disuasorios.geojson web/parkings-publicos.geojson web/aparcat.geojson; do
   if [ -f "$geojson" ]; then
     COUNT=$(jq '.features | length' "$geojson" 2>/dev/null || echo "?")
     SIZE=$(du -h "$geojson" | cut -f1)
