@@ -26,7 +26,7 @@
 
     function parseIds(value) {
         if (!value) return [];
-        return value.split(',').map(decode).filter(Boolean);
+        return value.split(',').map(function (id) { return id.trim(); }).filter(Boolean);
     }
 
     function encodeIds(ids) {
@@ -39,7 +39,7 @@
             'z=' + encodeURIComponent(String(zoom))
         ];
         if (basemapId) parts.push('b=' + encodeURIComponent(basemapId));
-        if (selectedIds && selectedIds.length) parts.push('l=' + encodeIds(selectedIds));
+        parts.push('l=' + encodeIds(selectedIds || []));
         return parts.join('&');
     }
 
