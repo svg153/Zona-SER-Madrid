@@ -1,0 +1,23 @@
+name: Tooling Tests
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/**'
+      - 'tests/**'
+      - '.github/workflows/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  updater-tools:
+    name: Updater tooling
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Run offline unit tests
+        run: python3 -m unittest discover -s tests -p 'test_*.py' -v
