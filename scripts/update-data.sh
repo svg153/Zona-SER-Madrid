@@ -53,6 +53,13 @@ rm -rf "$PARQ_TMP"
 echo "✅ Parquímetros descargados ($PARQ_TOTAL features)"
 echo ""
 
+# Fuente oficial diaria de aparcamientos públicos municipales disuasorios.
+echo "⬇️  Descargando aparcamientos disuasorios municipales..."
+DISUASORIOS_URL="https://datos.madrid.es/dataset/300531-0-aparcamientos-publicos/resource/300531-0-aparcamientos-publicos-geo/download/300531-0-aparcamientos-publicos.geo"
+curl "${CURL_COMMON[@]}" "$DISUASORIOS_URL" -o disuasorios_raw.geojson
+echo "✅ Aparcamientos disuasorios descargados"
+echo ""
+
 cd ..
 
 # Verificar datos descargados
@@ -91,6 +98,11 @@ for json in sources/barrios.geojson sources/parquimetros_raw.geojson; do
   fi
   echo "   ✓ $(basename "$json"): $COUNT features"
 done
+
+# El portal de datos ha servido esta familia tanto como GeoJSON como JSON-LD.
+# La validación de contrato se realiza en el normalizador para soportar ambos formatos.
+python3 scripts/normalize_parkings.py sources/disuasorios_raw.geojson web/disuasorios.geojson
+
 echo "✅ Todos los datos intactos"
 echo ""
 
@@ -107,7 +119,7 @@ echo ""
 
 # Verificar salida (solo archivos principales; la validación completa vive en validate_geojson.py)
 echo "✓ Verificando GeoJSON generado:"
-for geojson in web/zonas.geojson web/objects.geojson; do
+for geojson in web/zonas.geojson web/objects.geojson web/disuasorios.geojson; do
   if [ -f "$geojson" ]; then
     COUNT=$(jq '.features | length' "$geojson" 2>/dev/null || echo "?")
     SIZE=$(du -h "$geojson" | cut -f1)
