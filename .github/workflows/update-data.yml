@@ -167,7 +167,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          REPORT_FILE=".github/zone-report.md"
+          REPORT_FILE="${RUNNER_TEMP}/zone-report.md"
+          export REPORT_FILE
 
           python3 << 'PYEOF'
           import json, os
@@ -248,11 +249,11 @@ jobs:
 
           report = "\n".join(lines)
 
-          # Save report file
-          with open("ZONE_REPORT.md", "w") as f:
+          # Keep the report outside the repository worktree so it cannot leak into the data PR.
+          report_file = os.environ["REPORT_FILE"]
+          with open(report_file, "w") as f:
               f.write(report)
 
-          # GITHUB_OUTPUT values (use os.environ since PYEOF is single-quoted)
           total_spaces = sum(calles_by_zona.values())
           total_crosses = sum(crosses_by_zona.values())
           zones_with_data = len(calles_by_zona)
@@ -263,16 +264,18 @@ jobs:
               f.write(f"total_crosses={total_crosses}\n")
               f.write(f"parquimetros={parq_total}\n")
               f.write(f"zones_with_data={zones_with_data}\n")
+              f.write("report<<ZONE_REPORT_EOF\n")
+              f.write(report)
+              f.write("\nZONE_REPORT_EOF\n")
 
           print(f"Zone report: {zones_with_data} zones, {total_spaces:,} spaces, {total_crosses} crosses, {parq_total} parquimetros")
-          print(report)
 
           PYEOF
 
+          test -s "$REPORT_FILE"
           echo "Zone report generated: $REPORT_FILE"
-          cat ZONE_REPORT.md
-          echo "---"
-          cat /tmp/zone_report_summary.txt
+          cat "$REPORT_FILE"
+          cat "$REPORT_FILE" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Create Pull Request if data changed
         if: steps.check_changes.outputs.changed == 'true'
@@ -299,10 +302,7 @@ jobs:
             - Crosses (inter-zone): ${{ steps.zone_report.outputs.total_crosses || 'see report below' }}
             - Parquímetros: ${{ steps.zone_report.outputs.parquimetros || 'N/A' }}
 
-            ## 📊 Week by Zone
-
-            | Zone | Barrio | Spaces |
-            |------|--------|--------|
+            ${{ steps.zone_report.outputs.report }}
 
             Please review and merge if changes are acceptable.
           branch: data/weekly-update
