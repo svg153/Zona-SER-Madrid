@@ -26,21 +26,32 @@
         return earthKm * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
     }
 
+    function numericValue(value) {
+        if (value === null || value === undefined || value === "") return null;
+        var number = Number(value);
+        return Number.isFinite(number) ? number : null;
+    }
+
     function supportsDuration(candidate, durationHours) {
         if (!candidate || !Number.isFinite(durationHours) || durationHours <= 0) return false;
-        if (candidate.maxHours == null) return true;
-        return durationHours <= Number(candidate.maxHours);
+        var minHours = numericValue(candidate.minHours);
+        var maxHours = numericValue(candidate.maxHours);
+        if (minHours !== null && durationHours < minHours) return false;
+        if (maxHours !== null && durationHours > maxHours) return false;
+        return true;
     }
 
     function estimateCost(candidate, durationHours) {
         if (!candidate || !Number.isFinite(durationHours) || durationHours <= 0) return null;
-        if (Number.isFinite(Number(candidate.fixedCost))) return Number(candidate.fixedCost);
-        if (Number.isFinite(Number(candidate.costPerHour))) {
+        var fixedCost = numericValue(candidate.fixedCost);
+        if (fixedCost !== null) return fixedCost;
+
+        var costPerHour = numericValue(candidate.costPerHour);
+        if (costPerHour !== null) {
             var billableHours = durationHours;
-            if (Number.isFinite(Number(candidate.maxBillableHours))) {
-                billableHours = Math.min(billableHours, Number(candidate.maxBillableHours));
-            }
-            return Number(candidate.costPerHour) * billableHours;
+            var maxBillableHours = numericValue(candidate.maxBillableHours);
+            if (maxBillableHours !== null) billableHours = Math.min(billableHours, maxBillableHours);
+            return costPerHour * billableHours;
         }
         return null;
     }
@@ -48,7 +59,9 @@
     function prepareCandidate(candidate, destination, durationHours, origin) {
         var result = Object.assign({}, candidate);
         result.supported = supportsDuration(candidate, durationHours);
-        result.distanceToDestinationKm = distanceKm(destination, candidate);
+        result.distanceToDestinationKm = Number.isFinite(Number(candidate.distanceToDestinationKm))
+            ? Number(candidate.distanceToDestinationKm)
+            : distanceKm(destination, candidate);
         result.distanceFromOriginKm = origin ? distanceKm(origin, candidate) : null;
         result.estimatedCost = result.supported ? estimateCost(candidate, durationHours) : null;
         result.rankableParkRide = candidate.type !== "park_ride" || !!origin;
