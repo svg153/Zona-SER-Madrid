@@ -10,6 +10,22 @@ cd "$PROJECT_DIR"
 
 CURL_COMMON=(--fail --silent --show-error --location --retry 3 --retry-all-errors)
 
+validate_parking_download() {
+  local path="$1"
+  local label="$2"
+  local url="$3"
+
+  if ! jq -e '(.type == "FeatureCollection" and (.features | type == "array")) or ((."@graph" // null) | type == "array")' "$path" > /dev/null 2>&1; then
+    echo "❌ Descarga inválida para $label"
+    echo "   URL: $url"
+    echo "   Se esperaba GeoJSON FeatureCollection o JSON-LD con @graph."
+    echo -n "   Inicio de la respuesta: "
+    head -c 180 "$path" | tr '\\n' ' '
+    echo
+    exit 1
+  fi
+}
+
 # Descargar datos
 echo "⬇️  Descargando bandas de aparcamiento (SHP)..."
 mkdir -p sources
@@ -55,13 +71,15 @@ echo ""
 
 # Fuentes oficiales diarias de aparcamientos municipales.
 echo "⬇️  Descargando aparcamientos disuasorios municipales..."
-DISUASORIOS_URL="https://datos.madrid.es/dataset/300531-0-aparcamientos-publicos/resource/300531-0-aparcamientos-publicos-geo/download/300531-0-aparcamientos-publicos.geo"
+DISUASORIOS_URL="https://datos.madrid.es/dataset/300531-0-aparcamientos-publicos/resource/300531-0-aparcamientos-publicos-geo/download/300531-0-aparcamientos-publicos-geo.geo"
 curl "${CURL_COMMON[@]}" "$DISUASORIOS_URL" -o disuasorios_raw.geojson
+validate_parking_download disuasorios_raw.geojson "aparcamientos disuasorios municipales" "$DISUASORIOS_URL"
 echo "✅ Aparcamientos disuasorios descargados"
 
 echo "⬇️  Descargando aparcamientos públicos municipales..."
-PUBLICOS_URL="https://datos.madrid.es/dataset/202625-0-aparcamientos-publicos/resource/202625-4-aparcamientos-publicos-geo/download/202625-0-aparcamientos-publicos.geo"
+PUBLICOS_URL="https://datos.madrid.es/dataset/202625-0-aparcamientos-publicos/resource/202625-4-aparcamientos-publicos-geo/download/202625-4-aparcamientos-publicos-geo.geo"
 curl "${CURL_COMMON[@]}" "$PUBLICOS_URL" -o parkings_publicos_raw.geojson
+validate_parking_download parkings_publicos_raw.geojson "aparcamientos públicos municipales" "$PUBLICOS_URL"
 echo "✅ Aparcamientos públicos municipales descargados"
 echo ""
 
