@@ -21,6 +21,12 @@ const Ranking = require("../web/parking-ranking.js");
     assert.strictEqual(Ranking.estimateCost({costPerHour: 0.5}, 8), 4);
     assert.strictEqual(Ranking.estimateCost({fixedCost: 12}, 8), 12);
     assert.strictEqual(Ranking.estimateCost({}, 8), null);
+    assert.strictEqual(Ranking.estimateCost({fixedCost: null, costPerHour: null}, 8), null);
+})();
+
+(function testMinimumStay() {
+    assert.strictEqual(Ranking.supportsDuration({minHours: 5, maxHours: 16}, 4), false);
+    assert.strictEqual(Ranking.supportsDuration({minHours: 5, maxHours: 16}, 8), true);
 })();
 
 (function testRecommendationsAreExplainableAndDoNotFakeParkRide() {
