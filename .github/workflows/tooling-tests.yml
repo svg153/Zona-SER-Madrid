@@ -6,6 +6,8 @@ on:
       - 'scripts/**'
       - 'tests/**'
       - 'web/*.js'
+      - 'api/**'
+      - 'vercel.json'
       - 'web/ser-rules.json'
       - '.github/workflows/**'
   workflow_dispatch:
@@ -32,3 +34,8 @@ jobs:
 
       - name: Test shareable layer state
         run: node tests/test_layer_state.js
+
+      - name: Test realtime parking adapter
+        run: |
+          node tests/test_parking_occupancy_api.js
+          node tests/test_parking_occupancy_client.js
