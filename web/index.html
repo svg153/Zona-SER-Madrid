@@ -21,9 +21,15 @@
         html, body { width: 100%; height: 100%; margin: 0; }
         #map { width: 100%; height: 100%; }
         .text_barrio:not(:empty) { font-weight: bold; color: #773687; background-color: #ffff0050; padding: 0.2em 0.6em; border-radius: 5px; }
-        .ser_legend { background: rgba(255, 255, 255, 0.96); padding: 10px 12px; border-radius: 6px; box-shadow: 0 1px 5px rgba(0,0,0,0.35); max-width: 260px; line-height: 1.25; }
+        .ser_legend { background: rgba(255, 255, 255, 0.96); padding: 0; border-radius: 7px; box-shadow: 0 1px 5px rgba(0,0,0,0.35); max-width: 280px; line-height: 1.3; overflow: hidden; }
+        .ser_legend_toggle { display: flex; width: 100%; min-height: 40px; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 12px; border: 0; background: transparent; color: #111; cursor: pointer; font: inherit; font-weight: 700; text-align: left; }
+        .ser_legend_toggle:hover, .ser_legend_toggle:focus-visible { background: rgba(0, 0, 0, 0.055); outline: none; }
+        .ser_legend_chevron { display: inline-block; font-size: 14px; line-height: 1; transition: transform 0.15s ease; }
+        .ser_legend_body { padding: 0 12px 10px; }
+        .ser_legend.is-collapsed .ser_legend_body { display: none; }
+        .ser_legend.is-collapsed .ser_legend_chevron { transform: rotate(-90deg); }
         .ser_legend_item { display: flex; gap: 8px; align-items: flex-start; margin-top: 7px; }
-        .ser_swatch { display: inline-block; width: 16px; height: 5px; margin-top: 6px; border-radius: 3px; flex: 0 0 16px; }
+        .ser_swatch { display: inline-block; width: 18px; height: 5px; margin-top: 6px; border-radius: 3px; flex: 0 0 18px; }
         .ser_legend_source { margin-top: 8px; padding-top: 7px; border-top: 1px solid #ddd; font-size: 11px; }
         .parking_marker { background: transparent; border: 0; }
         .municipal_park_ride_marker, .municipal_public_parking_marker, .regional_park_ride_marker { width: 32px; height: 32px; border-radius: 7px 7px 7px 2px; background: #fff; border: 2px solid #222; box-shadow: 0 1px 4px rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center; gap: 1px; font-family: system-ui, sans-serif; }
@@ -33,7 +39,14 @@
         .parking_marker_transfer { font-size: 12px; font-weight: 700; line-height: 1; }
         .leaflet-control-layers-expanded { max-height: min(72vh, 640px); overflow-y: auto; }
         @media (max-width: 700px) {
-            .ser_legend { max-width: 200px; max-height: 34vh; overflow-y: auto; font-size: 12px; }
+            .ser_legend { max-width: min(250px, calc(100vw - 28px)); font-size: 14px; }
+            .ser_legend.is-collapsed { max-width: min(220px, calc(100vw - 28px)); }
+            .ser_legend_toggle { min-height: 44px; padding: 10px 13px; font-size: 15px; }
+            .ser_legend_body { max-height: 45vh; overflow-y: auto; padding: 0 13px 12px; }
+            .ser_legend_item { gap: 10px; margin-top: 9px; }
+            .ser_legend_item small { font-size: 12.5px; line-height: 1.3; }
+            .ser_swatch { width: 20px; flex-basis: 20px; }
+            .ser_legend_source { font-size: 12px; }
             .leaflet-control-layers-expanded { max-width: 82vw; max-height: 64vh; font-size: 12px; }
         }
     </style>

@@ -92,7 +92,10 @@ function add_ser_legend() {
     legend.onAdd = function() {
         var div = L.DomUtil.create('div', 'ser_legend');
         var order = ['Verde', 'Azul', 'Naranja', 'Rojo', 'Alta Rotación'];
-        var html = '<strong>Tipos de plaza SER</strong>';
+        var collapsedByDefault = window.matchMedia && window.matchMedia('(max-width: 700px)').matches;
+        var html = '<button type="button" class="ser_legend_toggle" aria-expanded="' + (!collapsedByDefault) + '" aria-label="Mostrar u ocultar la leyenda de tipos de plaza SER">';
+        html += '<span>Tipos de plaza SER</span><span class="ser_legend_chevron" aria-hidden="true">▾</span></button>';
+        html += '<div class="ser_legend_body">';
         order.forEach(function(name) {
             var rule = get_ser_rule(name);
             if (!rule) return;
@@ -106,8 +109,20 @@ function add_ser_legend() {
             if (ser_rules_data.verifiedAt) html += ' · ' + escape_html(ser_rules_data.verifiedAt);
             html += '</div>';
         }
+        html += '</div>';
         div.innerHTML = html;
+
+        if (collapsedByDefault) L.DomUtil.addClass(div, 'is-collapsed');
+
+        var toggle = div.querySelector('.ser_legend_toggle');
+        L.DomEvent.on(toggle, 'click', function(event) {
+            L.DomEvent.stop(event);
+            var isCollapsed = div.classList.toggle('is-collapsed');
+            toggle.setAttribute('aria-expanded', String(!isCollapsed));
+        });
+
         L.DomEvent.disableClickPropagation(div);
+        L.DomEvent.disableScrollPropagation(div);
         return div;
     };
     legend.addTo(map);
