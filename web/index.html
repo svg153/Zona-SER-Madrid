@@ -17,6 +17,9 @@
 	<link rel="stylesheet" href="https://unpkg.com/leaflet.control.layers.tree@1.0.0/L.Control.Layers.Tree.css" />
 	<script src="https://unpkg.com/leaflet.control.layers.tree@1.0.0/L.Control.Layers.Tree.js"></script>
 
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder@4.0.0/dist/Control.Geocoder.css" />
+    <script src="https://unpkg.com/leaflet-control-geocoder@4.0.0/dist/Control.Geocoder.js"></script>
+
     <style type="text/css">
         html, body { width: 100%; height: 100%; margin: 0; }
         #map { width: 100%; height: 100%; }
@@ -37,6 +40,19 @@
         .regional_park_ride_marker { border-radius: 50%; border-width: 3px; }
         .parking_marker_p { font-size: 18px; font-weight: 800; line-height: 1; }
         .parking_marker_transfer { font-size: 12px; font-weight: 700; line-height: 1; }
+        .parking_search_control { background: rgba(255,255,255,0.97); border-radius: 7px; box-shadow: 0 1px 5px rgba(0,0,0,0.35); width: min(360px, calc(100vw - 70px)); overflow: hidden; font: 14px/1.35 system-ui, sans-serif; }
+        .parking_search_toggle { width: 100%; min-height: 40px; padding: 9px 12px; border: 0; background: transparent; text-align: left; font: inherit; font-weight: 700; cursor: pointer; }
+        .parking_search_body { padding: 0 10px 10px; }
+        .parking_search_control.is-collapsed .parking_search_body { display: none; }
+        .parking_search_row label { display: block; font-weight: 650; margin-top: 6px; }
+        .parking_search_row input { box-sizing: border-box; width: 100%; margin-top: 4px; min-height: 36px; padding: 7px 9px; border: 1px solid #aaa; border-radius: 5px; font: inherit; }
+        .parking_search_actions { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+        .parking_search_actions button, .parking_search_results button { min-height: 34px; border: 1px solid #aaa; border-radius: 5px; background: #fff; padding: 5px 8px; cursor: pointer; font: inherit; }
+        .parking_search_origin { margin-top: 8px; }
+        .parking_search_origin summary { cursor: pointer; font-weight: 650; }
+        .parking_search_results { display: grid; gap: 4px; margin-top: 6px; }
+        .parking_search_results button { text-align: left; }
+        .parking_search_status { min-height: 18px; margin-top: 7px; font-size: 12px; color: #444; }
         .leaflet-control-layers-expanded { max-height: min(72vh, 640px); overflow-y: auto; }
         @media (max-width: 700px) {
             .ser_legend { max-width: min(250px, calc(100vw - 28px)); font-size: 14px; }
@@ -47,6 +63,10 @@
             .ser_legend_item small { font-size: 12.5px; line-height: 1.3; }
             .ser_swatch { width: 20px; flex-basis: 20px; }
             .ser_legend_source { font-size: 12px; }
+            .parking_search_control { width: min(300px, calc(100vw - 76px)); font-size: 14px; }
+            .parking_search_toggle { min-height: 44px; font-size: 15px; }
+            .parking_search_body { max-height: 58vh; overflow-y: auto; }
+            .parking_search_actions button { min-height: 38px; }
             .leaflet-control-layers-expanded { max-width: 82vw; max-height: 64vh; font-size: 12px; }
         }
     </style>
@@ -56,6 +76,7 @@
     <div id="map"></div>
     <script src="layer-state.js"></script>
     <script src="script.js"></script>
+    <script src="destination-search.js"></script>
     <script src="parking-layers.js"></script>
     <script src="restriction-layers.js"></script>
 </body>
