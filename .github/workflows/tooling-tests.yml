@@ -35,3 +35,6 @@ jobs:
 
       - name: Test parking ranking prototype
         run: node tests/test_parking_ranking.js
+
+      - name: Test destination search helpers
+        run: node tests/test_destination_search.js
