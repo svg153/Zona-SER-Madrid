@@ -176,6 +176,11 @@
         if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
 
         var type = options.type || (props.kind === "municipal_public_parking" ? "public_parking" : "park_ride");
+        var minHours = props.minHours === null || props.minHours === undefined || props.minHours === "" ? null : Number(props.minHours);
+        var maxHours = props.maxHours === null || props.maxHours === undefined || props.maxHours === "" ? null : Number(props.maxHours);
+        var explicitFixedCost = props.fixedCost === null || props.fixedCost === undefined || props.fixedCost === "" ? null : Number(props.fixedCost);
+        var eligibleFree = props.freeWhenEligible === true ? 0 : null;
+        var fixedCost = Number.isFinite(explicitFixedCost) ? explicitFixedCost : eligibleFree;
         return {
             id: options.prefix + ":" + String(props.id || props.name || options.index || ""),
             type: type,
@@ -183,10 +188,12 @@
             address: props.address || "",
             lat: lat,
             lon: lon,
-            minHours: Number.isFinite(Number(props.minHours)) ? Number(props.minHours) : null,
-            maxHours: Number.isFinite(Number(props.maxHours)) ? Number(props.maxHours) : null,
-            fixedCost: Number.isFinite(Number(props.fixedCost)) ? Number(props.fixedCost) : null,
-            costKnown: Number.isFinite(Number(props.fixedCost)),
+            minHours: Number.isFinite(minHours) ? minHours : null,
+            maxHours: Number.isFinite(maxHours) ? maxHours : null,
+            fixedCost: fixedCost,
+            costKnown: fixedCost !== null,
+            freeWhenEligible: props.freeWhenEligible === true,
+            requiresPublicTransportTrip: props.freeWhenEligible === true,
             sourceFeature: feature,
             sourceKind: props.kind || ""
         };
