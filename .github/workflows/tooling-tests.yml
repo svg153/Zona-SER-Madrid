@@ -32,3 +32,28 @@ jobs:
 
       - name: Test shareable layer state
         run: node tests/test_layer_state.js
+
+
+  parking-source-smoke:
+    name: Live Madrid source smoke test
+    if: github.head_ref == 'fix/parking-source-urls'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Build updater image
+        run: docker build -t zona-ser-update .
+
+      - name: Run updater against live Madrid sources
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:/workspace \
+            zona-ser-update \
+            bash scripts/update-data.sh
+
+      - name: Update live ZBE snapshots
+        run: bash scripts/update-zbe.sh
+
+      - name: Validate all generated GeoJSON
+        run: python3 scripts/validate_geojson.py --web-dir web
