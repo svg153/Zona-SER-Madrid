@@ -313,6 +313,8 @@ function load_zonas() {
 
 function download_plazas_json() {
     load_json('objects.geojson', function(response) {
+        window.serParkingSource = response;
+        window.dispatchEvent(new CustomEvent('parking:source-updated', {detail: {source: 'ser'}}));
         var colors = {'Verde': 'green', 'Azul': 'blue', 'Naranja': 'orange', 'Rojo': 'red', 'Alta Rotación': 'cyan', '(null)': 'grey'};
         L.geoJSON(response, {
             style: function(feature) {

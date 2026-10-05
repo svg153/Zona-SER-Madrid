@@ -1,6 +1,8 @@
 "use strict";
 
 (function () {
+    window.parkingDecisionSources = window.parkingDecisionSources || {};
+
     function parkingIcon(kind) {
         var markerClass = 'municipal_public_parking_marker';
         var markerHtml = '<span class="parking_marker_p">P</span>';
@@ -56,6 +58,8 @@
 
     function loadParkingLayer(config) {
         load_json(config.path, function(response) {
+            window.parkingDecisionSources[config.id] = response;
+            window.dispatchEvent(new CustomEvent('parking:source-updated', {detail: {source: config.id}}));
             var layer = L.geoJSON(response, {
                 pointToLayer: function(feature, latlng) {
                     return L.marker(latlng, {icon: parkingIcon(config.kind)});
