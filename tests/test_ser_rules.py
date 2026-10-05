@@ -32,6 +32,13 @@ class SerRulesTests(unittest.TestCase):
         self.assertIn("12 h", long_stay["maxStay"])
         self.assertIn("0,50 €/h", long_stay["price"])
 
+    def test_machine_readable_limits_are_available_for_ranking(self) -> None:
+        self.assertEqual(2, self.rules["Verde"]["maxHours"])
+        self.assertEqual(4, self.rules["Azul"]["maxHours"])
+        self.assertEqual(12, self.rules["Naranja"]["maxHours"])
+        self.assertEqual(0.5, self.rules["Naranja"]["costPerHour"])
+        self.assertEqual(0.75, self.rules["Alta Rotación"]["maxHours"])
+
     def test_catalog_keeps_source_and_verification_date(self) -> None:
         self.assertTrue(self.payload["source"].startswith("https://"))
         self.assertRegex(self.payload["verifiedAt"], r"^\d{4}-\d{2}-\d{2}$")
