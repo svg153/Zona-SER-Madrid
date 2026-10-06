@@ -60,6 +60,21 @@ PY
   fi
 }
 
+validate_parking_csv() {
+  local path="$1"
+  local label="$2"
+  local url="$3"
+  local header
+
+  header="$(head -n 1 "$path" | tr -d '\r')"
+  if [[ "$header" != *"NOMBRE"* || "$header" != *"LATITUD"* || "$header" != *"LONGITUD"* ]]; then
+    echo "❌ Descarga CSV inválida para $label"
+    echo "   URL: $url"
+    echo "   Cabecera: $header"
+    exit 1
+  fi
+}
+
 # Descargar datos
 echo "⬇️  Descargando bandas de aparcamiento (SHP)..."
 mkdir -p sources
@@ -111,9 +126,9 @@ validate_parking_download disuasorios_raw.geojson "aparcamientos disuasorios mun
 echo "✅ Aparcamientos disuasorios descargados"
 
 echo "⬇️  Descargando aparcamientos públicos municipales..."
-PUBLICOS_URL="https://datos.madrid.es/dataset/202625-0-aparcamientos-publicos/resource/202625-5-aparcamientos-publicos-json/download/202625-5-aparcamientos-publicos-json.json"
-curl "${CURL_COMMON[@]}" "$PUBLICOS_URL" -o parkings_publicos_raw.geojson
-validate_parking_download parkings_publicos_raw.geojson "aparcamientos públicos municipales" "$PUBLICOS_URL"
+PUBLICOS_URL="https://datos.madrid.es/dataset/202625-0-aparcamientos-publicos/resource/202625-3-aparcamientos-publicos-csv/download/202625-3-aparcamientos-publicos-csv.csv"
+curl "${CURL_COMMON[@]}" "$PUBLICOS_URL" -o parkings_publicos_raw.csv
+validate_parking_csv parkings_publicos_raw.csv "aparcamientos públicos municipales" "$PUBLICOS_URL"
 echo "✅ Aparcamientos públicos municipales descargados"
 echo ""
 
@@ -154,10 +169,10 @@ for json in sources/barrios.geojson sources/parquimetros_raw.geojson; do
   echo "   ✓ $(basename "$json"): $COUNT features"
 done
 
-# Estas familias se normalizan desde GeoJSON o desde el JSON-LD histórico.
+# Estas familias se normalizan desde las distribuciones estructuradas más estables disponibles.
 python3 scripts/normalize_parkings.py sources/disuasorios_raw.geojson web/disuasorios.geojson
 python3 scripts/normalize_parkings.py \
-  sources/parkings_publicos_raw.geojson \
+  sources/parkings_publicos_raw.csv \
   web/parkings-publicos.geojson \
   --kind municipal_public_parking \
   --dataset-url "https://datos.madrid.es/dataset/202625-0-aparcamientos-publicos" \
