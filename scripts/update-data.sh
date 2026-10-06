@@ -22,6 +22,8 @@ validate_parking_download() {
     echo -n "   Inicio de la respuesta: "
     head -c 180 "$path" | tr '\\n' ' '
     echo
+    echo "   Estructura JSON detectada:"
+    jq -c '{keys: keys, graph_type: ((."@graph" // null) | type), data_type: ((.data // null) | type), items_type: ((.items // null) | type)}' "$path" 2>/dev/null || true
     exit 1
   fi
 }
