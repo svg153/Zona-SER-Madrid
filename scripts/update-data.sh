@@ -41,6 +41,11 @@ for encoding in ("utf-8-sig", "latin-1"):
         payload = json.loads(text)
     except json.JSONDecodeError as exc:
         print("   json", encoding, "ERROR:", exc)
+        lines = text.splitlines()
+        start = max(0, exc.lineno - 3)
+        end = min(len(lines), exc.lineno + 2)
+        for number in range(start, end):
+            print(f"   line {number + 1}: {lines[number][:220]!r}")
         continue
     print("   json", encoding, "OK")
     if isinstance(payload, dict):
