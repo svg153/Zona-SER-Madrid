@@ -22,8 +22,35 @@ validate_parking_download() {
     echo -n "   Inicio de la respuesta: "
     head -c 180 "$path" | tr '\\n' ' '
     echo
-    echo "   Estructura JSON detectada:"
-    jq -c '{keys: keys, graph_type: ((."@graph" // null) | type), data_type: ((.data // null) | type), items_type: ((.items // null) | type)}' "$path" 2>/dev/null || true
+    echo "   Diagnóstico del payload:"
+    python3 - "$path" <<'PY' || true
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+raw = path.read_bytes()
+print("   bytes:", len(raw), "prefix:", repr(raw[:120]))
+for encoding in ("utf-8-sig", "latin-1"):
+    try:
+        text = raw.decode(encoding)
+    except UnicodeDecodeError as exc:
+        print("   decode", encoding, "ERROR:", exc)
+        continue
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError as exc:
+        print("   json", encoding, "ERROR:", exc)
+        continue
+    print("   json", encoding, "OK")
+    if isinstance(payload, dict):
+        print("   keys:", list(payload.keys())[:20])
+        graph = payload.get("@graph")
+        print("   @graph type:", type(graph).__name__)
+        if isinstance(graph, dict):
+            print("   @graph keys:", list(graph.keys())[:20])
+    break
+PY
     exit 1
   fi
 }
