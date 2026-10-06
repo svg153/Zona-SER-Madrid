@@ -71,13 +71,13 @@ echo ""
 
 # Fuentes oficiales diarias de aparcamientos municipales.
 echo "⬇️  Descargando aparcamientos disuasorios municipales..."
-DISUASORIOS_URL="https://datos.madrid.es/dataset/300531-0-aparcamientos-publicos/resource/300531-0-aparcamientos-publicos-geo/download/300531-0-aparcamientos-publicos-geo.geo"
+DISUASORIOS_URL="https://datos.madrid.es/dataset/300531-0-aparcamientos-publicos/resource/300531-2-aparcamientos-publicos-json/download/300531-2-aparcamientos-publicos-json.json"
 curl "${CURL_COMMON[@]}" "$DISUASORIOS_URL" -o disuasorios_raw.geojson
 validate_parking_download disuasorios_raw.geojson "aparcamientos disuasorios municipales" "$DISUASORIOS_URL"
 echo "✅ Aparcamientos disuasorios descargados"
 
 echo "⬇️  Descargando aparcamientos públicos municipales..."
-PUBLICOS_URL="https://datos.madrid.es/dataset/202625-0-aparcamientos-publicos/resource/202625-4-aparcamientos-publicos-geo/download/202625-4-aparcamientos-publicos-geo.geo"
+PUBLICOS_URL="https://datos.madrid.es/dataset/202625-0-aparcamientos-publicos/resource/202625-5-aparcamientos-publicos-json/download/202625-5-aparcamientos-publicos-json.json"
 curl "${CURL_COMMON[@]}" "$PUBLICOS_URL" -o parkings_publicos_raw.geojson
 validate_parking_download parkings_publicos_raw.geojson "aparcamientos públicos municipales" "$PUBLICOS_URL"
 echo "✅ Aparcamientos públicos municipales descargados"
