@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import html
 import json
 import re
@@ -56,26 +57,43 @@ def address_text(value: Any) -> str:
     return ", ".join(parts)
 
 
+def coordinate_value(value: Any) -> float | None:
+    if value in (None, ""):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+
+    text = str(value).strip().replace(",", ".")
+    # The Madrid source has occasionally emitted duplicated minus signs.
+    # Normalize only a repeated leading sign, never arbitrary numeric content.
+    text = re.sub(r"^-{2,}(?=\d)", "-", text)
+    try:
+        return float(text)
+    except ValueError:
+        return None
+
+
 def extract_coordinates(item: dict[str, Any]) -> list[float] | None:
     geometry = item.get("geometry")
     if isinstance(geometry, dict) and geometry.get("type") == "Point":
         coordinates = geometry.get("coordinates")
-        if (
-            isinstance(coordinates, list)
-            and len(coordinates) >= 2
-            and all(isinstance(value, (int, float)) for value in coordinates[:2])
-        ):
-            return [float(coordinates[0]), float(coordinates[1])]
+        if isinstance(coordinates, list) and len(coordinates) >= 2:
+            longitude = coordinate_value(coordinates[0])
+            latitude = coordinate_value(coordinates[1])
+            if longitude is not None and latitude is not None:
+                return [longitude, latitude]
 
     location = item.get("location")
     if isinstance(location, dict):
-        latitude = first_value(location, "latitude", "lat", "y")
-        longitude = first_value(location, "longitude", "lng", "lon", "x")
-        try:
-            if latitude is not None and longitude is not None:
-                return [float(longitude), float(latitude)]
-        except (TypeError, ValueError):
-            pass
+        latitude = coordinate_value(first_value(location, "latitude", "lat", "y"))
+        longitude = coordinate_value(first_value(location, "longitude", "lng", "lon", "x"))
+        if latitude is not None and longitude is not None:
+            return [longitude, latitude]
+
+    latitude = coordinate_value(first_value(item, "LATITUD", "latitude", "lat", "y"))
+    longitude = coordinate_value(first_value(item, "LONGITUD", "longitude", "lng", "lon", "x"))
+    if latitude is not None and longitude is not None:
+        return [longitude, latitude]
     return None
 
 
@@ -127,8 +145,27 @@ def normalized_feature(
     ) or fallback_name
 
     address = address_text(first_value(props, "address", "direccion", "DIRECCION"))
+    if not address:
+        address_parts = [
+            clean_text(first_value(props, "CLASE-VIAL")),
+            clean_text(first_value(props, "NOMBRE-VIA")),
+            clean_text(first_value(props, "NUM")),
+            clean_text(first_value(props, "CODIGO-POSTAL")),
+            clean_text(first_value(props, "LOCALIDAD")),
+        ]
+        address = ", ".join(part for part in address_parts if part)
+
     description = nested_description(props)
-    source_url = clean_text(first_value(props, "@id", "url", "URL")) or dataset_url
+    if not description:
+        description = clean_text(
+            first_value(
+                props,
+                "DESCRIPCION-ENTIDAD",
+                "DESCRIPCION",
+                "EQUIPAMIENTO",
+            )
+        )
+    source_url = clean_text(first_value(props, "@id", "url", "URL", "CONTENT-URL")) or dataset_url
 
     return {
         "type": "Feature",
@@ -149,7 +186,25 @@ def source_items(payload: dict[str, Any]) -> list[dict[str, Any]]:
     graph = payload.get("@graph")
     if isinstance(graph, list):
         return [item for item in graph if isinstance(item, dict)]
-    raise ValueError("Unsupported parking dataset: expected FeatureCollection or @graph")
+    rows = payload.get("rows")
+    if isinstance(rows, list):
+        return [item for item in rows if isinstance(item, dict)]
+    raise ValueError("Unsupported parking dataset: expected FeatureCollection, @graph or CSV rows")
+
+
+def load_payload(path: Path) -> dict[str, Any]:
+    if path.suffix.lower() != ".csv":
+        return json.loads(path.read_text(encoding="utf-8-sig"))
+
+    text = path.read_text(encoding="utf-8-sig")
+    sample = text[:4096]
+    try:
+        dialect = csv.Sniffer().sniff(sample, delimiters=";,")
+    except csv.Error:
+        dialect = csv.excel
+        dialect.delimiter = ";"
+    rows = list(csv.DictReader(text.splitlines(), dialect=dialect))
+    return {"rows": rows}
 
 
 def normalize(
@@ -185,7 +240,7 @@ def main() -> int:
     parser.add_argument("--fallback-name", default=DEFAULT_NAME)
     args = parser.parse_args()
 
-    payload = json.loads(args.input.read_text(encoding="utf-8-sig"))
+    payload = load_payload(args.input)
     normalized = normalize(
         payload,
         kind=args.kind,
