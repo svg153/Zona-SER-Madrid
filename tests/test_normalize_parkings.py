@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import tempfile
 import unittest
+from pathlib import Path
 
-from scripts.normalize_parkings import normalize
+from scripts.normalize_parkings import load_payload, normalize
 
 
 class NormalizeParkingsTests(unittest.TestCase):
@@ -66,6 +68,30 @@ class NormalizeParkingsTests(unittest.TestCase):
         result = normalize(payload)
         feature = result["features"][0]
         self.assertEqual(feature["geometry"]["coordinates"], [-3.7, 40.4])
+        self.assertEqual(feature["properties"]["sourceUrl"], "https://example.test/parking/1")
+
+    def test_csv_rows_and_duplicated_minus_coordinate_are_supported(self) -> None:
+        content = (
+            "PK;NOMBRE;CLASE-VIAL;NOMBRE-VIA;NUM;CODIGO-POSTAL;LOCALIDAD;"
+            "LATITUD;LONGITUD;CONTENT-URL\n"
+            "1;Parking CSV;CALLE;PRUEBA;7;28000;MADRID;"
+            "40.4058768185719;--3.65138632197171;https://example.test/parking/1\n"
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "parkings.csv"
+            path.write_text(content, encoding="utf-8")
+            payload = load_payload(path)
+
+        result = normalize(
+            payload,
+            kind="municipal_public_parking",
+            dataset_url="https://example.test/dataset",
+            fallback_name="Aparcamiento público municipal",
+        )
+        feature = result["features"][0]
+        self.assertEqual(feature["geometry"]["coordinates"], [-3.65138632197171, 40.4058768185719])
+        self.assertEqual(feature["properties"]["name"], "Parking CSV")
+        self.assertIn("CALLE", feature["properties"]["address"])
         self.assertEqual(feature["properties"]["sourceUrl"], "https://example.test/parking/1")
 
     def test_dataset_without_usable_points_fails(self) -> None:

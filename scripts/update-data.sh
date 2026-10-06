@@ -10,6 +10,71 @@ cd "$PROJECT_DIR"
 
 CURL_COMMON=(--fail --silent --show-error --location --retry 3 --retry-all-errors)
 
+validate_parking_download() {
+  local path="$1"
+  local label="$2"
+  local url="$3"
+
+  if ! jq -e '(.type == "FeatureCollection" and (.features | type == "array")) or ((."@graph" // null) | type == "array")' "$path" > /dev/null 2>&1; then
+    echo "❌ Descarga inválida para $label"
+    echo "   URL: $url"
+    echo "   Se esperaba GeoJSON FeatureCollection o JSON-LD con @graph."
+    echo -n "   Inicio de la respuesta: "
+    head -c 180 "$path" | tr '\\n' ' '
+    echo
+    echo "   Diagnóstico del payload:"
+    python3 - "$path" <<'PY' || true
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+raw = path.read_bytes()
+print("   bytes:", len(raw), "prefix:", repr(raw[:120]))
+for encoding in ("utf-8-sig", "latin-1"):
+    try:
+        text = raw.decode(encoding)
+    except UnicodeDecodeError as exc:
+        print("   decode", encoding, "ERROR:", exc)
+        continue
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError as exc:
+        print("   json", encoding, "ERROR:", exc)
+        lines = text.splitlines()
+        start = max(0, exc.lineno - 3)
+        end = min(len(lines), exc.lineno + 2)
+        for number in range(start, end):
+            print(f"   line {number + 1}: {lines[number][:220]!r}")
+        continue
+    print("   json", encoding, "OK")
+    if isinstance(payload, dict):
+        print("   keys:", list(payload.keys())[:20])
+        graph = payload.get("@graph")
+        print("   @graph type:", type(graph).__name__)
+        if isinstance(graph, dict):
+            print("   @graph keys:", list(graph.keys())[:20])
+    break
+PY
+    exit 1
+  fi
+}
+
+validate_parking_csv() {
+  local path="$1"
+  local label="$2"
+  local url="$3"
+  local header
+
+  header="$(head -n 1 "$path" | tr -d '\r')"
+  if [[ "$header" != *"NOMBRE"* || "$header" != *"LATITUD"* || "$header" != *"LONGITUD"* ]]; then
+    echo "❌ Descarga CSV inválida para $label"
+    echo "   URL: $url"
+    echo "   Cabecera: $header"
+    exit 1
+  fi
+}
+
 # Descargar datos
 echo "⬇️  Descargando bandas de aparcamiento (SHP)..."
 mkdir -p sources
@@ -55,13 +120,15 @@ echo ""
 
 # Fuentes oficiales diarias de aparcamientos municipales.
 echo "⬇️  Descargando aparcamientos disuasorios municipales..."
-DISUASORIOS_URL="https://datos.madrid.es/dataset/300531-0-aparcamientos-publicos/resource/300531-0-aparcamientos-publicos-geo/download/300531-0-aparcamientos-publicos.geo"
+DISUASORIOS_URL="https://datos.madrid.es/dataset/300531-0-aparcamientos-publicos/resource/300531-2-aparcamientos-publicos-json/download/300531-2-aparcamientos-publicos-json.json"
 curl "${CURL_COMMON[@]}" "$DISUASORIOS_URL" -o disuasorios_raw.geojson
+validate_parking_download disuasorios_raw.geojson "aparcamientos disuasorios municipales" "$DISUASORIOS_URL"
 echo "✅ Aparcamientos disuasorios descargados"
 
 echo "⬇️  Descargando aparcamientos públicos municipales..."
-PUBLICOS_URL="https://datos.madrid.es/dataset/202625-0-aparcamientos-publicos/resource/202625-4-aparcamientos-publicos-geo/download/202625-0-aparcamientos-publicos.geo"
-curl "${CURL_COMMON[@]}" "$PUBLICOS_URL" -o parkings_publicos_raw.geojson
+PUBLICOS_URL="https://datos.madrid.es/dataset/202625-0-aparcamientos-publicos/resource/202625-3-aparcamientos-publicos-csv/download/202625-3-aparcamientos-publicos-csv.csv"
+curl "${CURL_COMMON[@]}" "$PUBLICOS_URL" -o parkings_publicos_raw.csv
+validate_parking_csv parkings_publicos_raw.csv "aparcamientos públicos municipales" "$PUBLICOS_URL"
 echo "✅ Aparcamientos públicos municipales descargados"
 echo ""
 
@@ -102,10 +169,10 @@ for json in sources/barrios.geojson sources/parquimetros_raw.geojson; do
   echo "   ✓ $(basename "$json"): $COUNT features"
 done
 
-# Estas familias se normalizan desde GeoJSON o desde el JSON-LD histórico.
+# Estas familias se normalizan desde las distribuciones estructuradas más estables disponibles.
 python3 scripts/normalize_parkings.py sources/disuasorios_raw.geojson web/disuasorios.geojson
 python3 scripts/normalize_parkings.py \
-  sources/parkings_publicos_raw.geojson \
+  sources/parkings_publicos_raw.csv \
   web/parkings-publicos.geojson \
   --kind municipal_public_parking \
   --dataset-url "https://datos.madrid.es/dataset/202625-0-aparcamientos-publicos" \
