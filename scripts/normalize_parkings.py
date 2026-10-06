@@ -196,7 +196,11 @@ def load_payload(path: Path) -> dict[str, Any]:
     if path.suffix.lower() != ".csv":
         return json.loads(path.read_text(encoding="utf-8-sig"))
 
-    text = path.read_text(encoding="utf-8-sig")
+    raw = path.read_bytes()
+    try:
+        text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        text = raw.decode("cp1252")
     sample = text[:4096]
     try:
         dialect = csv.Sniffer().sniff(sample, delimiters=";,")
