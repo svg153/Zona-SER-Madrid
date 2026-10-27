@@ -36,6 +36,9 @@
         options = options || {};
         var now = options.now || Date.now;
         var schedule = options.schedule || function (fn, delay) { return setTimeout(fn, delay); };
+        var setTimer = options.setTimeout || setTimeout;
+        var clearTimer = options.clearTimeout || clearTimeout;
+        var timeoutMs = options.timeoutMs || 10000;
         var minInterval = options.minIntervalMs || MIN_REQUEST_INTERVAL_MS;
         var cache = {};
         var lastRequestAt = -Infinity;
@@ -46,23 +49,36 @@
             if (!key) return Promise.resolve([]);
             if (cache[key]) return Promise.resolve(cache[key]);
 
-            queue = queue.then(function () {
+            var operation = queue.catch(function () {}).then(function () {
                 return new Promise(function (resolve, reject) {
                     var delay = Math.max(0, minInterval - (now() - lastRequestAt));
                     schedule(function () {
                         lastRequestAt = now();
+                        var settled = false;
+                        var timer = setTimer(function () {
+                            settled = true;
+                            reject(new Error("Geocoding request timed out"));
+                        }, timeoutMs);
                         try {
                             geocoder.geocode(query, function (results) {
+                                if (settled) return;
+                                settled = true;
+                                clearTimer(timer);
                                 cache[key] = Array.isArray(results) ? results : [];
                                 resolve(cache[key]);
                             });
                         } catch (error) {
-                            reject(error);
+                            if (!settled) {
+                                settled = true;
+                                clearTimer(timer);
+                                reject(error);
+                            }
                         }
                     }, delay);
                 });
             });
-            return queue;
+            queue = operation.catch(function () {});
+            return operation;
         }
 
         return {geocode: request, cache: cache};
@@ -79,18 +95,20 @@
     }
 
     function init(map) {
-        if (!map || typeof L === "undefined" || !L.Control || !L.Control.Geocoder) return null;
+        if (!map || typeof L === "undefined" || !L.Control) return null;
 
         var state = createState();
         var markers = {destination: null, origin: null};
         var pickMode = null;
-        var geocoder = L.Control.Geocoder.nominatim({
+        var searchContainer = null;
+        var searchToggle = null;
+        var geocoder = L.Control.Geocoder && L.Control.Geocoder.nominatim ? L.Control.Geocoder.nominatim({
             geocodingQueryParams: {
                 countrycodes: "es",
                 viewbox: MADRID_VIEWBOX
             }
-        });
-        var limitedGeocoder = createRateLimitedGeocoder(geocoder);
+        }) : null;
+        var limitedGeocoder = geocoder ? createRateLimitedGeocoder(geocoder) : null;
 
         function publish() {
             window.dispatchEvent(new CustomEvent("parking:search-state", {
@@ -118,6 +136,11 @@
         function setPoint(kind, point, pan) {
             state = updateState(state, kind, point);
             markerFor(kind, state[kind]);
+            if (state[kind] && searchContainer && searchContainer.classList.contains("is-open")) {
+                L.DomUtil.removeClass(searchContainer, "is-open");
+                L.DomUtil.addClass(searchContainer, "is-collapsed");
+                searchToggle.setAttribute("aria-expanded", "false");
+            }
             if (pan && state[kind]) map.panTo([state[kind].lat, state[kind].lon]);
             publish();
             return state[kind];
@@ -127,10 +150,12 @@
             options: {position: "topleft"},
             onAdd: function () {
                 var container = L.DomUtil.create("div", "parking_search_control");
+                searchContainer = container;
                 var collapsed = window.matchMedia && window.matchMedia("(max-width: 700px)").matches;
                 if (collapsed) L.DomUtil.addClass(container, "is-collapsed");
 
                 var toggle = L.DomUtil.create("button", "parking_search_toggle", container);
+                searchToggle = toggle;
                 toggle.type = "button";
                 toggle.setAttribute("aria-expanded", String(!collapsed));
                 toggle.textContent = "Buscar aparcamiento";
@@ -153,6 +178,7 @@
                 L.DomEvent.on(toggle, "click", function (event) {
                     L.DomEvent.stop(event);
                     var isCollapsed = container.classList.toggle("is-collapsed");
+                    container.classList.toggle("is-open", !isCollapsed);
                     toggle.setAttribute("aria-expanded", String(!isCollapsed));
                 });
                 L.DomEvent.disableClickPropagation(container);
@@ -187,6 +213,7 @@
                     pick.textContent = "Mapa";
                     pick.addEventListener("click", function () {
                         pickMode = kind;
+                        window.destination_selection_active = true;
                         status.textContent = "Toca el mapa para elegir " + labelText.toLowerCase() + ".";
                     });
                     actions.appendChild(pick);
@@ -237,6 +264,10 @@
                         status.textContent = "Escribe una dirección o lugar.";
                         return;
                     }
+                    if (!limitedGeocoder) {
+                        status.textContent = "La búsqueda de direcciones no está disponible. Elige el destino tocando el mapa.";
+                        return;
+                    }
                     status.textContent = "Buscando...";
                     limitedGeocoder.geocode(query).then(function (results) {
                         var previous = row.querySelector(".parking_search_results");
@@ -275,6 +306,7 @@
                     if (!pickMode) return;
                     var kind = pickMode;
                     pickMode = null;
+                    window.destination_selection_active = false;
                     setPoint(kind, {
                         lat: event.latlng.lat,
                         lon: event.latlng.lng,

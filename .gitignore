@@ -7,3 +7,7 @@ Thumbs.db
 *.log
 sources/
 scripts/_inspect-zip.sh
+node_modules/
+web/ser-data/
+__pycache__/
+*.py[cod]

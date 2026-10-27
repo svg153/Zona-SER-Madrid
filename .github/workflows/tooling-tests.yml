@@ -6,6 +6,7 @@ on:
       - 'scripts/**'
       - 'tests/**'
       - 'web/*.js'
+      - 'package*.json'
       - 'api/**'
       - 'vercel.json'
       - 'web/ser-rules.json'
@@ -81,3 +82,17 @@ jobs:
         run: python3 scripts/validate_geojson.py --web-dir web
 
 
+
+  mobile-recommendations:
+    name: Mobile destination recommendations
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser

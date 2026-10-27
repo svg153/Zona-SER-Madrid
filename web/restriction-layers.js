@@ -11,6 +11,9 @@
 
     function loadRestriction(config) {
         load_json(config.path, function(response) {
+            window.parkingRestrictionSources = window.parkingRestrictionSources || {};
+            window.parkingRestrictionSources[config.id] = response;
+            window.dispatchEvent(new CustomEvent('parking:source-updated', {detail:{source:config.id}}));
             var layer = L.geoJSON(response, {
                 style: {
                     color: config.color,

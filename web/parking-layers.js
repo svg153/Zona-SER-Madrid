@@ -68,6 +68,7 @@
                     marker.bindPopup(parkingPopup(feature), {maxWidth: 380});
                 }
             });
+            window.dispatchEvent(new CustomEvent('parking-data', {detail:{config:config,data:response,layer:layer}}));
             register_decision_layer(
                 config.group,
                 config.id,
@@ -96,6 +97,7 @@
                 });
             }
         }, function(status) {
+            window.dispatchEvent(new CustomEvent('parking-error', {detail:{id:config.id,label:config.label,status:status}}));
             console.warn(config.label + ' layer unavailable. HTTP status:', status);
         });
     }

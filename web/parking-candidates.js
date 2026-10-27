@@ -111,19 +111,64 @@
     }
 
     function nearestOnSer(feature, destination, turfApi) {
-        if (!turfApi || !turfApi.nearestPointOnLine || !turfApi.point) return null;
-        try {
-            var point = turfApi.point([Number(destination.lon), Number(destination.lat)]);
-            var nearest = turfApi.nearestPointOnLine(feature, point, {units: "kilometers"});
-            if (!nearest || !nearest.geometry || !nearest.geometry.coordinates) return null;
-            return {
-                lon: nearest.geometry.coordinates[0],
-                lat: nearest.geometry.coordinates[1],
-                distanceKm: Number(nearest.properties && nearest.properties.dist)
-            };
-        } catch (error) {
-            return null;
+        var geometry = feature && feature.geometry;
+        var coordinates = geometry && geometry.coordinates;
+        if (!coordinates || !destination) return null;
+        if ((geometry.type === "LineString" || geometry.type === "MultiLineString") && turfApi && turfApi.nearestPointOnLine && turfApi.point) {
+            try {
+                var line = geometry.type === "LineString" ? feature : {
+                    type: "Feature",
+                    properties: feature.properties || {},
+                    geometry: {type:"MultiLineString", coordinates:coordinates}
+                };
+                var point = turfApi.point([Number(destination.lon), Number(destination.lat)]);
+                var nearest = turfApi.nearestPointOnLine(line, point, {units:"kilometers"});
+                if (nearest && nearest.geometry && nearest.geometry.coordinates && Number.isFinite(Number(nearest.properties && nearest.properties.dist))) {
+                    return {lon:nearest.geometry.coordinates[0],lat:nearest.geometry.coordinates[1],distanceKm:Number(nearest.properties.dist)};
+                }
+            } catch (error) { /* Fall through to the local geometry implementation. */ }
         }
+        var lat = Number(destination.lat), lon = Number(destination.lon);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+        var cosLat = Math.cos(lat * Math.PI / 180);
+        var best = {lon:lon, lat:lat, distanceKm:Infinity};
+        function insideRing(ring) {
+            var inside = false;
+            for (var i=0,j=ring.length-1;i<ring.length;j=i++) {
+                var a=ring[i],b=ring[j];
+                if (((a[1]>lat)!==(b[1]>lat)) && lon < (b[0]-a[0])*(lat-a[1])/((b[1]-a[1])||1e-12)+a[0]) inside=!inside;
+            }
+            return inside;
+        }
+        function inspectPath(path, closed) {
+            if (!Array.isArray(path) || path.length < 2 || !Array.isArray(path[0])) return;
+            var segmentCount = closed ? path.length : path.length - 1;
+            for (var i=0;i<segmentCount;i++) {
+                var start=path[i], end=path[(i+1)%path.length];
+                if (!Array.isArray(end) || !Number.isFinite(Number(start[0])) || !Number.isFinite(Number(end[0]))) continue;
+                var ax=(Number(start[0])-lon)*111.32*cosLat, ay=(Number(start[1])-lat)*110.574;
+                var bx=(Number(end[0])-lon)*111.32*cosLat, by=(Number(end[1])-lat)*110.574;
+                var dx=bx-ax, dy=by-ay, denom=dx*dx+dy*dy;
+                var t=denom ? Math.max(0,Math.min(1,-(ax*dx+ay*dy)/denom)) : 0;
+                var x=ax+t*dx,y=ay+t*dy,d=Math.sqrt(x*x+y*y);
+                if (d < best.distanceKm) best={lon:lon+x/(111.32*cosLat),lat:lat+y/110.574,distanceKm:d};
+            }
+        }
+        function inspectPolygon(rings) {
+            if (!Array.isArray(rings) || !rings.length) return;
+            if (insideRing(rings[0]) && !rings.slice(1).some(insideRing)) best={lon:lon,lat:lat,distanceKm:0};
+            rings.forEach(function(ring) { inspectPath(ring, true); });
+        }
+        if (geometry.type === "Polygon") inspectPolygon(coordinates);
+        else if (geometry.type === "MultiPolygon") coordinates.forEach(inspectPolygon);
+        else if (geometry.type === "LineString") inspectPath(coordinates, false);
+        else if (geometry.type === "MultiLineString") coordinates.forEach(function(line) { inspectPath(line, false); });
+        else if (geometry.type === "GeometryCollection") (geometry.geometries||[]).forEach(function(child){
+            var childFeature={type:"Feature",properties:feature.properties||{},geometry:child};
+            var result=nearestOnSer(childFeature,destination,turfApi);
+            if(result && result.distanceKm<best.distanceKm) best=result;
+        });
+        return Number.isFinite(best.distanceKm) ? best : null;
     }
 
     function serFeatureId(feature, fallbackIndex) {

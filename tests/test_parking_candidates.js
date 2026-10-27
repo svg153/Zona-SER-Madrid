@@ -75,4 +75,10 @@ const lineFeature = (color, coords, id) => ({
     assert.strictEqual(candidates[0].fixedCost, null);
 })();
 
+const polygon = {type:"Feature", properties:{Color:"Naranja",OBJECTID:9001}, geometry:{type:"Polygon",coordinates:[[[-3.701,40.399],[-3.699,40.399],[-3.699,40.401],[-3.701,40.401],[-3.701,40.399]]]}};
+const polygonNearest = Candidates.nearestOnSer(polygon,{lat:40.4,lon:-3.7},null);
+assert.equal(polygonNearest.distanceKm,0,"destination inside a SER polygon is zero distance");
+const edgeNearest = Candidates.nearestOnSer(polygon,{lat:40.402,lon:-3.7},null);
+assert.ok(edgeNearest.distanceKm > 0 && edgeNearest.distanceKm < 0.3,"polygon edge distance works without Turf");
+
 console.log("parking candidate adapter tests passed");
