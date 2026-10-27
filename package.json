@@ -1,0 +1,21 @@
+{
+  "name": "zona-ser-madrid-tests",
+  "version": "1.0.0",
+  "description": "Visor web de la zona SER de Madrid con:",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test:browser": "node tests/mobile-recommendations.cjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "playwright": "^1.56.1"
+  },
+  "private": true
+}

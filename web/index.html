@@ -11,11 +11,11 @@
     <meta name="description" content="Mapa con las diversas zonas SER de Madrid, con las plazas de cada tipo según datos del ayuntamiento."/>
     <meta name="author" content="Javier Jimenez Shaw" />
 
-	<link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css" />
-	<script src="https://unpkg.com/leaflet@1.6.0/dist/leaflet-src.js"></script>
+	<link rel="stylesheet" href="vendor/leaflet.css" />
+	<script src="vendor/leaflet.js"></script>
 
-	<link rel="stylesheet" href="https://unpkg.com/leaflet.control.layers.tree@1.0.0/L.Control.Layers.Tree.css" />
-	<script src="https://unpkg.com/leaflet.control.layers.tree@1.0.0/L.Control.Layers.Tree.js"></script>
+	<link rel="stylesheet" href="vendor/L.Control.Layers.Tree.css" />
+	<script src="vendor/L.Control.Layers.Tree.js"></script>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder@4.0.0/dist/Control.Geocoder.css" />
     <script src="https://unpkg.com/leaflet-control-geocoder@4.0.0/dist/Control.Geocoder.js"></script>
@@ -61,6 +61,40 @@
         .parking_occupancy_stale strong, .parking_occupancy_no_data strong { color: #7a5d00; }
         .parking_occupancy_unavailable strong, .parking_occupancy_unmatched strong { color: #666; }
 
+        .recommendation-sheet { width: min(440px, calc(100vw - 64px)); margin: 0 0 12px 10px; font: 14px/1.4 system-ui, sans-serif; }
+        .recommendation-sheet details { max-height: 48vh; display: block; overflow: hidden; background: rgba(255,255,255,.98); border: 1px solid #bfc7cc; border-radius: 16px; box-shadow: 0 4px 22px rgba(16,34,44,.24); }
+        .recommendation-sheet details[open] { max-height: min(58vh, 620px); }
+        .recommendation-sheet summary { position: sticky; top: 0; z-index: 2; min-height: 48px; padding: 8px 14px; display: flex; background: #fff; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; font-weight: 750; list-style-position: inside; }
+        .recommendation-sheet summary small { font-weight: 500; color: #52616a; text-align: right; }
+        .recommendation-body { max-height: calc(58vh - 64px); padding: 4px 14px 14px; overflow-y: auto; overscroll-behavior: contain; }
+        .recommendation-body label { display: block; margin: 3px 0 5px; font-weight: 650; }
+        .recommendation-body select, .recommendation-body button { min-height: 44px; border: 1px solid #7b8b94; border-radius: 9px; background: white; padding: 8px 12px; font: inherit; }
+        .recommendation-body select { width: 100%; margin-bottom: 8px; }
+        .recommendation-body > button { width: 100%; color: white; background: #183f4d; border-color: #183f4d; font-weight: 700; }
+        .recommendation-body > button:disabled { opacity: .52; }
+        #recommendation-status { min-height: 1.5em; color: #43555e; font-size: 12px; }
+        .recommendation-card { padding: 12px 0; border-top: 1px solid #d8dfe2; }
+        .recommendation-kicker { color: #9d3c24; font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+        .recommendation-card h3 { margin: 4px 0; font-size: 16px; }
+        .recommendation-kind { color: #334f5c; font-size: 12px; font-weight: 700; }
+        .recommendation-card p { margin: 6px 0; }
+        .recommendation-card dl { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 6px; margin: 10px 0; }
+        .recommendation-card dl div { padding: 7px; background: #f0f4f5; border-radius: 8px; }
+        .recommendation-card dt { color: #52616a; font-size: 11px; }
+        .recommendation-card dd { margin: 2px 0 0; font-size: 12px; font-weight: 700; }
+        .recommendation-warning { padding: 8px; background: #fff0d5; border-left: 3px solid #a15a00; border-radius: 5px; font-size: 12px; }
+        .recommendation-note, .recommendation-disclaimer, .recommendation-empty { color: #52616a; font-size: 12px; }
+        .recommendation-actions { display: flex; align-items: center; gap: 14px; }
+        .recommendation-actions a { color: #14566a; font-weight: 650; }
+        .recommendation-disclaimer { margin-bottom: 0; }
+        @media (max-width: 700px) {
+            .recommendation-sheet { width: min(430px, calc(100vw - 64px)); margin: 0 0 8px 6px; }
+            .recommendation-sheet details[open] { max-height: min(55vh, 520px); }
+            .recommendation-body { max-height: calc(55vh - 64px); }
+            .recommendation-sheet summary { min-height: 50px; padding: 8px 12px; }
+            .recommendation-card dl { grid-template-columns: 1fr 1fr; }
+            .recommendation-card dl div:last-child { grid-column: 1 / -1; }
+        }
         .leaflet-control-layers-expanded { max-height: min(72vh, 640px); overflow-y: auto; }
         @media (max-width: 700px) {
             .ser_legend { max-width: min(250px, calc(100vw - 28px)); font-size: 14px; }
@@ -83,7 +117,6 @@
 <body>
     <div id="map"></div>
 
-    <script src="https://unpkg.com/@turf/turf@7.4.0"></script>
     <script src="runtime-config.js"></script>
     <script src="layer-state.js"></script>
     <script src="script.js"></script>
@@ -97,5 +130,6 @@
 
     <script src="parking-layers.js"></script>
     <script src="restriction-layers.js"></script>
+    <script src="recommendations-panel.js"></script>
 </body>
 </html>

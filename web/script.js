@@ -88,7 +88,7 @@ function build_parking_popup(feature) {
 
 function add_ser_legend() {
     if (!ser_rules_data.rules) return;
-    var legend = L.control({position: 'bottomright'});
+    var legend = L.control({position: 'topright'});
     legend.onAdd = function() {
         var div = L.DomUtil.create('div', 'ser_legend');
         var order = ['Verde', 'Azul', 'Naranja', 'Rojo', 'Alta Rotación'];

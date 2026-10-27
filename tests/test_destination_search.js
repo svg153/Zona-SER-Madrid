@@ -51,3 +51,18 @@ const Search = require("../web/destination-search.js");
     assert.strictEqual(scheduled[0], 0);
     assert(scheduled[1] >= 1100, "second network query should be rate limited");
 })().then(() => console.log("destination search tests passed"));
+
+(async function testTimedOutRequestDoesNotPoisonQueue() {
+    let calls = 0;
+    const geocoder = {geocode(query, callback) { calls += 1; if (query === "works") callback([{name:query}]); }};
+    const limited = Search.createRateLimitedGeocoder(geocoder, {
+        minIntervalMs: 1,
+        timeoutMs: 5,
+        setTimeout: (fn) => setTimeout(fn, 0),
+        schedule: (fn) => fn()
+    });
+    await assert.rejects(limited.geocode("stalled"), /timed out/);
+    const result = await limited.geocode("works");
+    assert.strictEqual(result.length,1,"a timeout must not block later searches");
+    assert.strictEqual(calls,2);
+})().then(() => console.log("geocoder timeout recovery passed"));
