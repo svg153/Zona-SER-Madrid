@@ -36,6 +36,11 @@ jobs:
         run: node tests/test_layer_state.js
 
 
+
+      - name: Test parking candidate adapters
+        run: node tests/test_parking_candidates.js
+
+
       - name: Test parking ranking prototype
         run: node tests/test_parking_ranking.js
 
@@ -74,4 +79,5 @@ jobs:
 
       - name: Validate all generated GeoJSON
         run: python3 scripts/validate_geojson.py --web-dir web
+
 
