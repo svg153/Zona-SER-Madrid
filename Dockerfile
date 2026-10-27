@@ -1,6 +1,6 @@
 # Imagen para actualizar los datos de Zona SER Madrid
 # Misma versión que el runner de GitHub Actions (ubuntu-latest)
-FROM ubuntu:24.04
+FROM ubuntu:26.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
