@@ -72,6 +72,25 @@
                 config.defaultOn,
                 config.order
             );
+
+            if (
+                config.kind === 'municipal_public_parking' &&
+                window.ParkingOccupancy &&
+                window.ZONA_SER_CONFIG &&
+                window.ZONA_SER_CONFIG.parkingOccupancyEndpoint
+            ) {
+                window.ParkingOccupancy.enrichLayer(layer, {
+                    endpoint: window.ZONA_SER_CONFIG.parkingOccupancyEndpoint,
+                    onUpdate: function(marker, status) {
+                        marker.setPopupContent(
+                            parkingPopup(marker.feature) +
+                            window.ParkingOccupancy.renderStatus(status)
+                        );
+                    }
+                }).then(function(diagnostics) {
+                    window.parkingOccupancyDiagnostics = diagnostics;
+                });
+            }
         }, function(status) {
             console.warn(config.label + ' layer unavailable. HTTP status:', status);
         });

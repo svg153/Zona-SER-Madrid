@@ -40,6 +40,7 @@
         .regional_park_ride_marker { border-radius: 50%; border-width: 3px; }
         .parking_marker_p { font-size: 18px; font-weight: 800; line-height: 1; }
         .parking_marker_transfer { font-size: 12px; font-weight: 700; line-height: 1; }
+
         .parking_search_control { background: rgba(255,255,255,0.97); border-radius: 7px; box-shadow: 0 1px 5px rgba(0,0,0,0.35); width: min(360px, calc(100vw - 70px)); overflow: hidden; font: 14px/1.35 system-ui, sans-serif; }
         .parking_search_toggle { width: 100%; min-height: 40px; padding: 9px 12px; border: 0; background: transparent; text-align: left; font: inherit; font-weight: 700; cursor: pointer; }
         .parking_search_body { padding: 0 10px 10px; }
@@ -53,6 +54,13 @@
         .parking_search_results { display: grid; gap: 4px; margin-top: 6px; }
         .parking_search_results button { text-align: left; }
         .parking_search_status { min-height: 18px; margin-top: 7px; font-size: 12px; color: #444; }
+
+        .parking_occupancy { margin-top: 8px; padding-top: 7px; border-top: 1px solid #ddd; }
+        .parking_occupancy_available strong { color: #177245; }
+        .parking_occupancy_full strong { color: #a40000; }
+        .parking_occupancy_stale strong, .parking_occupancy_no_data strong { color: #7a5d00; }
+        .parking_occupancy_unavailable strong, .parking_occupancy_unmatched strong { color: #666; }
+
         .leaflet-control-layers-expanded { max-height: min(72vh, 640px); overflow-y: auto; }
         @media (max-width: 700px) {
             .ser_legend { max-width: min(250px, calc(100vw - 28px)); font-size: 14px; }
@@ -74,9 +82,14 @@
 
 <body>
     <div id="map"></div>
+    <script src="runtime-config.js"></script>
     <script src="layer-state.js"></script>
     <script src="script.js"></script>
+
     <script src="destination-search.js"></script>
+
+    <script src="parking-occupancy.js"></script>
+
     <script src="parking-layers.js"></script>
     <script src="restriction-layers.js"></script>
 </body>
