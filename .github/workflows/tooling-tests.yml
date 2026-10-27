@@ -32,3 +32,6 @@ jobs:
 
       - name: Test shareable layer state
         run: node tests/test_layer_state.js
+
+      - name: Test parking ranking prototype
+        run: node tests/test_parking_ranking.js
