@@ -37,6 +37,11 @@
         .regional_park_ride_marker { border-radius: 50%; border-width: 3px; }
         .parking_marker_p { font-size: 18px; font-weight: 800; line-height: 1; }
         .parking_marker_transfer { font-size: 12px; font-weight: 700; line-height: 1; }
+        .parking_occupancy { margin-top: 8px; padding-top: 7px; border-top: 1px solid #ddd; }
+        .parking_occupancy_available strong { color: #177245; }
+        .parking_occupancy_full strong { color: #a40000; }
+        .parking_occupancy_stale strong, .parking_occupancy_no_data strong { color: #7a5d00; }
+        .parking_occupancy_unavailable strong, .parking_occupancy_unmatched strong { color: #666; }
         .leaflet-control-layers-expanded { max-height: min(72vh, 640px); overflow-y: auto; }
         @media (max-width: 700px) {
             .ser_legend { max-width: min(250px, calc(100vw - 28px)); font-size: 14px; }
@@ -54,8 +59,10 @@
 
 <body>
     <div id="map"></div>
+    <script src="runtime-config.js"></script>
     <script src="layer-state.js"></script>
     <script src="script.js"></script>
+    <script src="parking-occupancy.js"></script>
     <script src="parking-layers.js"></script>
     <script src="restriction-layers.js"></script>
 </body>
