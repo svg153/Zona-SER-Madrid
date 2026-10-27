@@ -76,7 +76,8 @@
     function reasonText(reason) {
         if (reason === 'cheapest_known') return ['Menor coste conocido', 'Entre las alternativas con una tarifa calculable para esta duración.'];
         if (reason === 'closest') return ['Más cerca del destino', 'La alternativa compatible más próxima en línea recta.'];
-        return ['Park & Ride desde el origen', 'Más próximo al origen indicado; comprueba el trayecto en transporte público.'];
+        if (reason === 'park_ride_from_origin') return ['Park & Ride desde el origen', 'Más próximo al origen indicado; comprueba el trayecto en transporte público.'];
+        return ['Otra opción compatible', 'Alternativa única que también cumple la duración indicada.'];
     }
     function setStatus(message) {
         var status = $('recommendation-status');
@@ -113,6 +114,27 @@
             });
             if (marker && marker.openPopup) marker.openPopup();
         }
+    }
+    function addUniqueAlternatives(result, candidates, duration, destinationPoint, originPoint) {
+        var seen = {};
+        result.recommendations.forEach(function(item) { seen[item.candidate.id] = true; });
+        var alternatives = candidates.filter(function(candidate) {
+            return candidate && !seen[candidate.id] && ParkingRanking.supportsDuration(candidate, duration) &&
+                (candidate.type !== 'park_ride' || !!originPoint);
+        }).map(function(candidate) {
+            var prepared = Object.assign({}, candidate);
+            prepared.distanceToDestinationKm = Number.isFinite(Number(candidate.distanceToDestinationKm)) ?
+                Number(candidate.distanceToDestinationKm) : ParkingRanking.distanceKm(destinationPoint, candidate);
+            prepared.distanceFromOriginKm = originPoint ? ParkingRanking.distanceKm(originPoint, candidate) : null;
+            prepared.estimatedCost = ParkingRanking.estimateCost(candidate, duration);
+            return prepared;
+        }).sort(function(a,b) { return a.distanceToDestinationKm - b.distanceToDestinationKm; });
+        alternatives.forEach(function(candidate) {
+            if (result.recommendations.length >= 3 || seen[candidate.id]) return;
+            seen[candidate.id] = true;
+            result.recommendations.push({reason:'nearby_alternative',explanation:'Otra alternativa compatible y distinta disponible en los datos.',candidate:candidate});
+        });
+        return result;
     }
     function render(result) {
         var list = $('recommendation-results');
@@ -160,7 +182,7 @@
         function candidatesReady() {
             var candidates = ParkingCandidates.browserCandidates(destination, duration);
             var result = ParkingRanking.recommend({destination:destination, origin:origin, durationHours:duration, candidates:candidates});
-            render(result);
+            render(addUniqueAlternatives(result,candidates,duration,destination,origin));
             setStatus(result.recommendations.length ? result.recommendations.length + ' recomendaciones. Distancias estimadas en línea recta.' : 'No se encontraron recomendaciones compatibles.');
         }
         var ready = window.ensureSerDecisionSource ? window.ensureSerDecisionSource(duration) : Promise.resolve();
@@ -168,7 +190,7 @@
             // Public parking and Park & Ride remain useful if the optional SER data request fails.
             var candidates = ParkingCandidates.browserCandidates(destination, duration);
             var result = ParkingRanking.recommend({destination:destination, origin:origin, durationHours:duration, candidates:candidates});
-            render(result);
+            render(addUniqueAlternatives(result,candidates,duration,destination,origin));
             setStatus('No se pudo cargar parte del SER. Se muestran las alternativas estáticas disponibles. ' + (error && error.message || ''));
         }).finally(function() {
             pending = false;

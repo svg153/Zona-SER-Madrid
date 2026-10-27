@@ -213,6 +213,7 @@
                     pick.textContent = "Mapa";
                     pick.addEventListener("click", function () {
                         pickMode = kind;
+                        window.destination_selection_active = true;
                         status.textContent = "Toca el mapa para elegir " + labelText.toLowerCase() + ".";
                     });
                     actions.appendChild(pick);
@@ -305,6 +306,7 @@
                     if (!pickMode) return;
                     var kind = pickMode;
                     pickMode = null;
+                    window.destination_selection_active = false;
                     setPoint(kind, {
                         lat: event.latlng.lat,
                         lon: event.latlng.lng,
