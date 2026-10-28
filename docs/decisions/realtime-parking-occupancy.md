@@ -200,7 +200,19 @@ La función serverless no necesita base de datos ni secreto del Ayuntamiento. Su
 
 ## Coste operativo
 
-La función es pequeña y stateless. Con caché de 30 a 60 segundos, el volumen upstream queda desacoplado del número de visitantes. Un tier gratuito serverless debería ser suficiente para el uso actual del proyecto, pero el proveedor y sus límites deben verificarse en el issue de implementación.
+La cuenta que aloja el adaptador usa el plan Hobby activo. Vercel describe Hobby como gratuito y orientado a proyectos personales y no comerciales. En Hobby no hay consumo de pago por uso: al superar los límites incluidos, Vercel pausa el uso afectado hasta que se restablezca, en vez de facturar excedentes. No hay método de pago ni presupuesto de equipo configurados en la captura del panel.
+
+Límites de funciones publicados por Vercel, consultados el 28 de octubre de 2026:
+
+- Hasta 1.000.000 de invocaciones incluidas.
+- Hasta 100 GB-horas de duración de funciones en la tabla del plan Hobby.
+- La documentación de Fluid Compute presenta sus recursos por separado: 4 horas de CPU activa y 360 GB-horas de memoria provisionada incluidas. Revisar el medidor aplicable al modo de cómputo del proyecto en Usage.
+
+Fuentes oficiales: [Hobby plan](https://vercel.com/docs/plans/hobby), [Function usage and pricing](https://vercel.com/docs/functions/usage-and-pricing), [Limits](https://vercel.com/docs/limits).
+
+El plan Hobby solo cubre uso personal y no comercial según las [condiciones de Vercel](https://vercel.com/legal/terms). Si el mapa pasa a formar parte de un servicio comercial, revisar el plan antes de continuar con este hosting.
+
+La caché CDN de 45 segundos reduce las ejecuciones del adaptador cuando la respuesta se reutiliza.
 
 ## Observabilidad mínima
 
@@ -246,3 +258,21 @@ GitHub Pages / Leaflet
 ```
 
 GitHub Pages sigue siendo el sistema de hosting principal del producto.
+
+## Registro de despliegue y operación
+
+Validación de producción: **2026-10-28**.
+
+- Endpoint: [https://zona-ser-occupancy.vercel.app/api/parking-occupancy](https://zona-ser-occupancy.vercel.app/api/parking-occupancy). Devuelve datos reales de InfoParking.
+- Proyecto Vercel: `zona-ser-occupancy`, equipo `svg153's projects`, región de función `cdg1`.
+- Despliegue de producción: [dpl_DURsos5mfoaXJcNvvfLYvie7XxgB](https://vercel.com/svg153s-projects/zona-ser-occupancy/DURsos5mfoaXJcNvvfLYvie7XxgB). El proyecto no está conectado a GitHub; la función se publicó mediante despliegue directo y los cambios futuros de `api/parking-occupancy.js` necesitan otro despliegue explícito.
+- GitHub Pages tiene configurado el endpoint de producción. La carga de la ficha desde `https://svg153.github.io` comprobó el CORS permitido. El adaptador responde HTTP 403 a un origen no permitido y omite `Access-Control-Allow-Origin`; el test local comprueba esa respuesta.
+- Se observó `X-Parking-Cache: HIT` en una respuesta repetida, con la caché configurada a 45 segundos.
+- El endpoint devolvió 75 registros: 23 con plazas y 52 sin dato. En el mapa, Almagro mostró 324 plazas libres y Condesa de Gavia mostró “Sin dato de ocupación”. La muestra no contenía medidas stale; la clasificación stale está cubierta por tests.
+- En la captura de Usage para Production, últimas 12 horas: 9 invocaciones, 0,00099 GB-horas y 0 % de errores. La captura de Billing muestra Hobby activo, sin presupuesto de equipo ni método de pago. El dato de uso no es un total mensual.
+
+### Rollback
+
+Panel del despliegue actual: [Vercel deployment inspector](https://vercel.com/svg153s-projects/zona-ser-occupancy/DURsos5mfoaXJcNvvfLYvie7XxgB). Para revertir una versión posterior, usar el rollback de Vercel al despliegue de producción anterior o `vercel rollback <deployment-id-or-url>`; Vercel limita Hobby al despliegue de producción inmediatamente anterior. En la validación inicial solo había un despliegue de producción, así que no existía una versión previa a promover. Mantener el código fuente en GitHub como referencia y comprobar que haya un despliegue anterior antes de depender del rollback.
+
+Referencia: [Vercel CLI rollback](https://vercel.com/docs/cli/rollback).
