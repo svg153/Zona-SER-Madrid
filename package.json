@@ -8,7 +8,8 @@
     "test": "tests"
   },
   "scripts": {
-    "test:browser": "node tests/mobile-recommendations.cjs"
+    "test:browser": "node tests/mobile-recommendations.cjs",
+    "parking:occupancy:coverage": "node scripts/report-parking-occupancy-coverage.js"
   },
   "keywords": [],
   "author": "",
