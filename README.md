@@ -78,3 +78,17 @@ Este proyecto es de consulta y no sustituye la información oficial con validez 
 ## Licencia
 
 Todo el contenido original de este repositorio está bajo [BSD-3-Clause](LICENSE).
+
+## Experiencia y rendimiento
+
+El mapa permite filtrar capas, buscar aparcamientos y marcar un destino para ordenar parkings por distancia en línea recta. Las capas y los parámetros compartibles del visor original se conservan. La leyenda empieza plegada. El resultado no comprueba el acceso ZBE ni ofrece ocupación o precio actual.
+
+Para reducir la carga inicial, las geometrías SER se dividen por tipo a partir de `web/objects.geojson`: el visor descarga la capa naranja inicialmente y obtiene el resto solo al activar sus filtros o un barrio. El trabajo de crear y mostrar geometrías se reparte en lotes y usa el renderizador Canvas. El catálogo completo de origen se conserva. La selección de todos los tipos o un barrio aún puede consumir recursos importantes en móviles lentos, especialmente porque los datos reales son voluminosos. Las teselas de IGN son externas y su latencia o disponibilidad no está bajo control de esta aplicación.
+
+Los fragmentos `web/ser-data` se generan al desplegar en Pages y al iniciar `bash run.sh`, siempre a partir del `objects.geojson` correspondiente. Para un servidor estático manual, ejecutar antes `python3 scripts/split_ser_data.py`. No se versionan los fragmentos derivados. Los ficheros de parkings municipales de esta versión son una instantánea descargada el 27/10/2026 desde los recursos oficiales y normalizada con la corrección de la PR #48. Las ZBE se obtuvieron el mismo día mediante `scripts/update-zbe.sh`. PR #48 corrigió las fuentes del updater y el smoke test real del 27/10/2026 generó y validó todas las capas. Sigue pendiente comprobar el flujo completo posterior a la fusión, incluida la creación de PR cuando haya cambios; se mantiene como seguimiento en #47.
+
+### Validación local y CI
+
+- `python3 -m unittest discover -s tests -p 'test_*.py'` verifica, entre otras cosas, que los fragmentos correspondan al catálogo completo y el tamaño inicial de larga estancia.
+- `node tests/test_layer_state.js` comprueba la compatibilidad de los enlaces compartidos.
+- `python3 scripts/split_ser_data.py && npm ci && npx playwright install chromium && npm run test:browser` ejecuta interacciones móviles con una descarga SER deliberadamente retenida y un fallo recuperable. El test bloquea servicios externos, incluidas las teselas, para que el resultado no dependa de la latencia de un proveedor. No demuestra tiempos reales de carga ni sustituye mediciones con dispositivos, conexiones y proveedores reales.

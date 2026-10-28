@@ -6,6 +6,9 @@ var basemaps = {};
 var ser_rules_data = {rules: {}, source: '', verifiedAt: ''};
 var ser_feature_layers = [];
 var ser_display_layer;
+var ser_load_state = {};
+var ser_render_generation = 0;
+var SER_FILES = {'ser:type:orange':'orange', 'ser:type:blue':'blue', 'ser:type:green':'green', 'ser:type:red':'red', 'ser:type:high-rotation':'high-rotation', 'ser:type:meters':'meters'};
 var layer_tree;
 var overlay_registry = {};
 
@@ -36,6 +39,8 @@ function load_json(path, callback, errorCallback) {
         xhr0.open('GET', path);
         xhr0.setRequestHeader('Content-Type', 'application/json');
         xhr0.responseType = 'json';
+        xhr0.timeout = 30000;
+        xhr0.ontimeout = function() { if (errorCallback) errorCallback(0); };
         xhr0.onload = function() {
             if (xhr0.status === 200) {
                 callback(xhr0.response);
@@ -92,7 +97,7 @@ function add_ser_legend() {
     legend.onAdd = function() {
         var div = L.DomUtil.create('div', 'ser_legend');
         var order = ['Verde', 'Azul', 'Naranja', 'Rojo', 'Alta Rotación'];
-        var collapsedByDefault = window.matchMedia && window.matchMedia('(max-width: 700px)').matches;
+        var collapsedByDefault = true;
         var html = '<button type="button" class="ser_legend_toggle" aria-expanded="' + (!collapsedByDefault) + '" aria-label="Mostrar u ocultar la leyenda de tipos de plaza SER">';
         html += '<span>Tipos de plaza SER</span><span class="ser_legend_chevron" aria-hidden="true">▾</span></button>';
         html += '<div class="ser_legend_body">';
@@ -109,6 +114,7 @@ function add_ser_legend() {
             if (ser_rules_data.verifiedAt) html += ' · ' + escape_html(ser_rules_data.verifiedAt);
             html += '</div>';
         }
+        html += '<div class="ser_legend_source"><b>P↔</b> Disuasorio municipal<br><b>PT</b> Aparca+T CRTM<br><b>P</b> Parking público municipal</div>';
         html += '</div>';
         div.innerHTML = html;
 
@@ -179,6 +185,8 @@ function register_decision_layer(group, id, label, layer, defaultOn, order, defe
     }
     if (!deferTree) rebuild_layer_tree();
     refresh_ser_display();
+    request_ser_for_selection();
+    window.dispatchEvent(new Event('overlay-registered'));
     return layer;
 }
 
@@ -220,19 +228,105 @@ function selected_ser_zones() {
 
 function refresh_ser_display() {
     if (!ser_display_layer) return;
+    var generation = ++ser_render_generation;
     ser_display_layer.clearLayers();
-
     var types = selected_ser_types();
     var zones = selected_ser_zones();
-    var typeKeys = Object.keys(types);
-    var zoneKeys = Object.keys(zones);
+    var typeKeys = Object.keys(types), zoneKeys = Object.keys(zones);
     if (!typeKeys.length && !zoneKeys.length) return;
+    var index = 0;
+    function renderBatch() {
+        if (generation !== ser_render_generation) return;
+        var end = Math.min(index + 300, ser_feature_layers.length);
+        for (; index < end; index++) {
+            var item = ser_feature_layers[index];
+            if ((!typeKeys.length || types[item.typeId]) && (!zoneKeys.length || (item.zone && zones[item.zone]))) ser_display_layer.addLayer(item.layer);
+        }
+        if (index < ser_feature_layers.length) setTimeout(renderBatch, 0);
+    }
+    renderBatch();
+}
 
-    ser_feature_layers.forEach(function(item) {
-        var typeMatches = !typeKeys.length || !!types[item.typeId];
-        var zoneMatches = !zoneKeys.length || (item.zone && !!zones[item.zone]);
-        if (typeMatches && zoneMatches) ser_display_layer.addLayer(item.layer);
+function request_ser_for_selection(retry) {
+    var types = selected_ser_types();
+    var zones = selected_ser_zones();
+    var ids = Object.keys(types);
+    if (Object.keys(zones).length && !ids.length) ids = Object.keys(SER_FILES).concat(['gray', 'other']);
+    ids.forEach(function(id) { load_ser_part(SER_FILES[id] || id, retry === true); });
+}
+
+var serDecisionSourceRequests = {};
+window.ensureSerDecisionSource = function(durationHours) {
+    var hours = Number(durationHours);
+    if (!Number.isFinite(hours) || hours <= 0) return Promise.reject(new Error('Indica una duración válida.'));
+    var colorByFile = {green:'Verde', blue:'Azul', orange:'Naranja', red:'Rojo', 'high-rotation':'Alta Rotación'};
+    var names = Object.keys(colorByFile).filter(function(file) {
+        var rule = get_ser_rule(colorByFile[file]);
+        return rule && Number(rule.maxHours) >= hours;
     });
+    var request = function(name) {
+        if (!serDecisionSourceRequests[name]) {
+            serDecisionSourceRequests[name] = new Promise(function(resolve, reject) {
+                load_json('ser-data/' + name + '.geojson', function(data) {
+                    if (!data || !Array.isArray(data.features)) reject(new Error('Capa SER inválida: ' + name));
+                    else resolve(data.features);
+                }, function(status) {
+                    delete serDecisionSourceRequests[name];
+                    reject(new Error('No se pudo cargar la capa SER ' + name + ' (' + status + ').'));
+                });
+            });
+        }
+        return serDecisionSourceRequests[name];
+    };
+    return Promise.all(names.map(request)).then(function(groups) {
+        var features = [].concat.apply([], groups);
+        window.serParkingSource = {type:'FeatureCollection', features:features};
+        window.dispatchEvent(new CustomEvent('parking:source-updated', {detail:{source:'ser', durationHours:hours}}));
+        return window.serParkingSource;
+    });
+};
+
+function load_ser_part(name, retry) {
+    if (ser_load_state[name] === 'loading' || ser_load_state[name] === 'ready' || (ser_load_state[name] === 'error' && !retry)) return;
+    ser_load_state[name] = 'loading';
+    window.dispatchEvent(new CustomEvent('ser-load-status', {detail:{name:name, status:'loading'}}));
+    load_json('ser-data/' + name + '.geojson', function(response) {
+        if (!response || !Array.isArray(response.features)) { failed(); return; }
+        var features = response.features, index = 0;
+        function processBatch() {
+            var end = Math.min(index + 250, features.length);
+            L.geoJSON({type:'FeatureCollection', features:features.slice(index, end)}, {
+                renderer: ser_canvas,
+                style: function(feature) {
+                    if (feature.properties.style) return feature.properties.style;
+                    var rule = get_ser_rule(feature.properties.Color);
+                    return {color: rule ? rule.color : 'grey', weight:5};
+                },
+                pointToLayer: function(feature, latlng) { return L.circleMarker(latlng, {renderer:ser_canvas, radius:2, fillColor:'black', color:'black', fillOpacity:0.8}); },
+                onEachFeature: function(feature, layer) {
+                    var props = feature.properties || {};
+                    var typeId = SER_TYPE_IDS[props.Color] || (layer instanceof L.CircleMarker ? 'ser:type:meters' : null);
+                    var zone = props.zona && props.zona != '--' ? String(props.zona) : null;
+                    ser_feature_layers.push({layer:layer, zone:zone, typeId:typeId});
+                    var popup = build_parking_popup(feature);
+                    if (popup) layer.bindPopup(popup, {maxWidth:360});
+                    var types = selected_ser_types(), zones = selected_ser_zones();
+                    if ((Object.keys(types).length || Object.keys(zones).length) && (!Object.keys(types).length || types[typeId]) && (!Object.keys(zones).length || (zone && zones[zone]))) ser_display_layer.addLayer(layer);
+                }
+            });
+            index = end;
+            if (index < features.length) setTimeout(processBatch, 0);
+            else {
+                ser_load_state[name] = 'ready';
+                window.dispatchEvent(new CustomEvent('ser-load-status', {detail:{name:name, status:'ready'}}));
+            }
+        }
+        processBatch();
+    }, failed);
+    function failed() {
+        ser_load_state[name] = 'error';
+        window.dispatchEvent(new CustomEvent('ser-load-status', {detail:{name:name, status:'error'}}));
+    }
 }
 
 var center = [40.4338300, -3.6886756];
@@ -258,7 +352,8 @@ var baseTree = [
 ];
 
 var initialBasemap = basemaps[initial_params.b] || ign;
-var map = L.map('map', {layers: [initialBasemap], center: center, zoom: zoom, maxZoom: 21});
+var map = L.map('map', {layers: [initialBasemap], center: center, zoom: zoom, maxZoom: 21, preferCanvas:true});
+var ser_canvas = L.canvas({padding:0.3});
 ser_display_layer = L.layerGroup().addTo(map);
 rebuild_layer_tree();
 L.control.scale({imperial: false}).addTo(map);
@@ -271,6 +366,7 @@ barrio_text.addTo(map);
 map.on('moveend zoomend baselayerchange', compute_url);
 map.on('overlayadd overlayremove', function() {
     refresh_ser_display();
+    request_ser_for_selection();
     compute_url();
 });
 
@@ -278,7 +374,7 @@ function register_ser_type_controls() {
     var order = ['Naranja', 'Azul', 'Verde', 'Rojo', 'Alta Rotación'];
     order.forEach(function(color, index) {
         var rule = get_ser_rule(color) || {label: color};
-        register_decision_layer('ser', SER_TYPE_IDS[color], rule.label, L.layerGroup(), false, index + 1, true);
+        register_decision_layer('ser', SER_TYPE_IDS[color], rule.label, L.layerGroup(), color === 'Naranja', index + 1, true);
     });
     register_decision_layer('ser', 'ser:type:meters', 'Parquímetros', L.layerGroup(), false, 99, true);
     rebuild_layer_tree();
@@ -287,7 +383,7 @@ function register_ser_type_controls() {
 function load_zonas() {
     load_json('zonas.geojson', function(response) {
         var jsonLayer = L.geoJSON(response, {
-            style: {fillColor: 'yellow', color: 'mediumorchid', opacity: 0.8, fillOpacity: 0.08},
+            style: {fillColor: 'yellow', color: 'mediumorchid', opacity: 0.4, weight: 1, fillOpacity: 0.02},
             onEachFeature: function(feature, layer) {
                 if (!feature.properties.name) return;
                 var zone = String(feature.properties.zona);
@@ -299,6 +395,7 @@ function load_zonas() {
                 layer.on('mouseover', function() { barrio_text.getContainer().innerHTML = feature.properties.name; });
                 layer.on('mouseout', function() { barrio_text.getContainer().innerHTML = ''; });
                 layer.on('click', function() {
+                    if (window.destination_selection_active) return;
                     if (map.hasLayer(controller)) map.removeLayer(controller);
                     else map.addLayer(controller);
                 });
@@ -307,35 +404,7 @@ function load_zonas() {
         });
         jsonLayer.addTo(map);
         rebuild_layer_tree();
-        download_plazas_json();
-    });
-}
-
-function download_plazas_json() {
-    load_json('objects.geojson', function(response) {
-        window.serParkingSource = response;
-        window.dispatchEvent(new CustomEvent('parking:source-updated', {detail: {source: 'ser'}}));
-        var colors = {'Verde': 'green', 'Azul': 'blue', 'Naranja': 'orange', 'Rojo': 'red', 'Alta Rotación': 'cyan', '(null)': 'grey'};
-        L.geoJSON(response, {
-            style: function(feature) {
-                if (feature.properties.style) return feature.properties.style;
-                var rule = get_ser_rule(feature.properties.Color);
-                return {color: rule ? rule.color : (colors[feature.properties.Color] || 'black'), weight: 5};
-            },
-            pointToLayer: function(feature, latlng) {
-                return L.circleMarker(latlng, {radius: 2, fillColor: 'black', color: 'black', fillOpacity: 0.8});
-            },
-            onEachFeature: function(feature, layer) {
-                var color = feature.properties.Color;
-                var typeId = SER_TYPE_IDS[color] || (layer instanceof L.CircleMarker ? 'ser:type:meters' : null);
-                var zone = feature.properties.zona && feature.properties.zona != '--' ? String(feature.properties.zona) : null;
-                ser_feature_layers.push({layer: layer, zone: zone, typeId: typeId});
-                var popup = build_parking_popup(feature);
-                if (popup) layer.bindPopup(popup, {maxWidth: 360});
-            }
-        });
-        refresh_ser_display();
-        compute_url();
+        request_ser_for_selection();
     });
 }
 

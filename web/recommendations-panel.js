@@ -201,18 +201,31 @@
         var settled = requiredSources.every(function(id) { return sourceStates[id] === 'ready' || sourceStates[id] === 'error'; });
         $('recommend-parking').disabled = !destination || !settled || pending;
     }
+    function buildSheet() {
+        var node = document.createElement('section');
+        node.className = 'recommendation-sheet';
+        node.innerHTML = '<details id="recommendation-details"><summary><span>Comparar dónde aparcar</span><small id="recommendation-summary">Elige un destino y una duración</small></summary>' +
+            '<div class="recommendation-body"><label for="parking-duration">¿Cuánto tiempo?</label><select id="parking-duration"><option value="1">1 hora</option><option value="2">2 horas</option><option value="4">4 horas</option><option value="8" selected>8 horas</option><option value="12">12 horas</option></select>' +
+            '<button id="recommend-parking" type="button" disabled>Comparar opciones</button><p id="recommendation-status" role="status" aria-live="polite">Elige un destino para comparar opciones.</p><div id="recommendation-results"></div>' +
+            '<p class="recommendation-disclaimer">Información orientativa basada en datos publicados; no confirma plazas libres, precios actuales, rutas ni permisos de acceso.</p></div></details>';
+        node.querySelector('#recommend-parking').addEventListener('click', compute);
+        node.querySelector('#parking-duration').addEventListener('change', function() { $('recommendation-summary').textContent = this.options[this.selectedIndex].text; });
+        return node;
+    }
     function createControl() {
+        var appShell = document.querySelector('.app-shell');
+        if (appShell) {
+            var inline = buildSheet();
+            inline.classList.add('recommendation-inline');
+            var mapWrap = appShell.querySelector('.map-wrap');
+            mapWrap.parentNode.insertBefore(inline, mapWrap.nextSibling);
+            return;
+        }
         control = L.control({position:'bottomleft'});
         control.onAdd = function() {
-            var node = L.DomUtil.create('section', 'recommendation-sheet');
-            node.innerHTML = '<details id="recommendation-details"><summary><span>Comparar dónde aparcar</span><small id="recommendation-summary">Elige un destino y una duración</small></summary>' +
-                '<div class="recommendation-body"><label for="parking-duration">¿Cuánto tiempo?</label><select id="parking-duration"><option value="1">1 hora</option><option value="2">2 horas</option><option value="4">4 horas</option><option value="8" selected>8 horas</option><option value="12">12 horas</option></select>' +
-                '<button id="recommend-parking" type="button" disabled>Comparar opciones</button><p id="recommendation-status" role="status" aria-live="polite">Elige un destino para comparar opciones.</p><div id="recommendation-results"></div>' +
-                '<p class="recommendation-disclaimer">Información orientativa basada en datos publicados; no confirma plazas libres, precios actuales, rutas ni permisos de acceso.</p></div></details>';
+            var node = buildSheet();
             L.DomEvent.disableClickPropagation(node);
             L.DomEvent.disableScrollPropagation(node);
-            node.querySelector('#recommend-parking').addEventListener('click', compute);
-            node.querySelector('#parking-duration').addEventListener('change', function() { $('recommendation-summary').textContent = this.options[this.selectedIndex].text; });
             return node;
         };
         control.addTo(map);

@@ -6,6 +6,7 @@ on:
     paths:
       - 'web/**'
       - '.github/workflows/deploy-pages.yml'
+      - 'scripts/split_ser_data.py'
   workflow_dispatch:
 
 permissions:
@@ -29,6 +30,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
       
+      - name: Generate on-demand SER layers
+        run: python3 scripts/split_ser_data.py web/objects.geojson web/ser-data
+
       - name: Setup Pages
         uses: actions/configure-pages@v6
       

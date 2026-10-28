@@ -5,12 +5,10 @@ on:
     paths:
       - 'scripts/**'
       - 'tests/**'
-      - 'web/*.js'
-      - 'web/index.html'
-      - 'package*.json'
+      - 'web/**'
       - 'api/**'
       - 'vercel.json'
-      - 'web/ser-rules.json'
+      - 'package*.json'
       - '.github/workflows/**'
   workflow_dispatch:
 
@@ -24,40 +22,59 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
-
       - name: Run offline unit tests
         run: python3 -m unittest discover -s tests -p 'test_*.py' -v
-
       - name: Check map JavaScript syntax
         run: |
           for file in web/*.js; do
             node --check "$file"
           done
-
       - name: Test shareable layer state
         run: node tests/test_layer_state.js
-
-
-
       - name: Test parking candidate adapters
         run: node tests/test_parking_candidates.js
-
-
-      - name: Test parking ranking prototype
+      - name: Test parking ranking
         run: node tests/test_parking_ranking.js
-
       - name: Test destination search helpers
         run: node tests/test_destination_search.js
-
-
       - name: Test realtime parking adapter
         run: |
           node tests/test_parking_occupancy_api.js
           node tests/test_parking_occupancy_client.js
           node tests/test_parking_occupancy_coverage.js
-      - name: Test parking ranking prototype
-        run: node tests/test_parking_ranking.js
 
+  mobile-browser-tests:
+    name: Mobile interaction, delayed network and recommendations
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+          cache: npm
+      - name: Install npm dependencies with retry
+        run: |
+          for attempt in 1 2 3; do
+            npm ci --prefer-offline && break
+            if [ "$attempt" -eq 3 ]; then exit 1; fi
+            sleep $((attempt * 5))
+          done
+      - name: Cache Playwright browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
+      - name: Install Chromium and system dependencies with retry
+        run: |
+          for attempt in 1 2 3; do
+            npx playwright install --with-deps chromium && break
+            if [ "$attempt" -eq 3 ]; then exit 1; fi
+            sleep $((attempt * 10))
+          done
+      - run: python3 scripts/split_ser_data.py web/objects.geojson web/ser-data
+      - run: npm run test:mobile-resilience
+      - run: npm run test:browser
 
   parking-source-smoke:
     name: Live Madrid source smoke test
@@ -66,35 +83,15 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
-
       - name: Build updater image
         run: docker build -t zona-ser-update .
-
       - name: Run updater against live Madrid sources
         run: |
           docker run --rm \
             -v ${{ github.workspace }}:/workspace \
             zona-ser-update \
             bash scripts/update-data.sh
-
       - name: Update live ZBE snapshots
         run: bash scripts/update-zbe.sh
-
       - name: Validate all generated GeoJSON
         run: python3 scripts/validate_geojson.py --web-dir web
-
-
-
-  mobile-recommendations:
-    name: Mobile destination recommendations
-    runs-on: ubuntu-latest
-    timeout-minutes: 12
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 26
-          cache: npm
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium
-      - run: npm run test:browser
