@@ -13,6 +13,8 @@ if [ ! -f "$WEB_DIR/zonas.geojson" ]; then
   exit 1
 fi
 
+python3 "$SCRIPT_DIR/scripts/split_ser_data.py" "$WEB_DIR/objects.geojson" "$WEB_DIR/ser-data"
+
 echo "🚀 Iniciando servidor web..."
 echo "📍 http://127.0.0.1:8000/index.html"
 echo ""

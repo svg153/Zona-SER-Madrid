@@ -9,6 +9,7 @@
   },
   "scripts": {
     "test:browser": "node tests/mobile-recommendations.cjs",
+    "test:mobile-resilience": "node tests/mobile-resilience.cjs",
     "parking:occupancy:coverage": "node scripts/report-parking-occupancy-coverage.js"
   },
   "keywords": [],

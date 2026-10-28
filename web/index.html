@@ -62,6 +62,7 @@
         .parking_occupancy_unavailable strong, .parking_occupancy_unmatched strong { color: #666; }
 
         .recommendation-sheet { width: min(440px, calc(100vw - 64px)); margin: 0 0 12px 10px; font: 14px/1.4 system-ui, sans-serif; }
+        .recommendation-inline { width: auto; margin: 12px 14px; }
         .recommendation-sheet details { max-height: 48vh; display: block; overflow: hidden; background: rgba(255,255,255,.98); border: 1px solid #bfc7cc; border-radius: 16px; box-shadow: 0 4px 22px rgba(16,34,44,.24); }
         .recommendation-sheet details[open] { max-height: min(58vh, 620px); }
         .recommendation-sheet summary { position: sticky; top: 0; z-index: 2; min-height: 48px; padding: 8px 14px; display: flex; background: #fff; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; font-weight: 750; list-style-position: inside; }
@@ -89,6 +90,7 @@
         .recommendation-disclaimer { margin-bottom: 0; }
         @media (max-width: 700px) {
             .recommendation-sheet { width: min(430px, calc(100vw - 64px)); margin: 0 0 8px 6px; }
+            .recommendation-inline { width: auto; margin: 10px 12px; }
             .recommendation-sheet details[open] { max-height: min(55vh, 520px); }
             .recommendation-body { max-height: calc(55vh - 64px); }
             .recommendation-sheet summary { min-height: 50px; padding: 8px 12px; }
@@ -105,31 +107,31 @@
             .ser_legend_item small { font-size: 12.5px; line-height: 1.3; }
             .ser_swatch { width: 20px; flex-basis: 20px; }
             .ser_legend_source { font-size: 12px; }
-            .parking_search_control { width: min(300px, calc(100vw - 76px)); font-size: 14px; }
-            .parking_search_toggle { min-height: 44px; font-size: 15px; }
-            .parking_search_body { max-height: 58vh; overflow-y: auto; }
-            .parking_search_actions button { min-height: 38px; }
             .leaflet-control-layers-expanded { max-width: 82vw; max-height: 64vh; font-size: 12px; }
         }
     </style>
+    <link rel="stylesheet" href="decision.css">
 </head>
 
 <body>
-    <div id="map"></div>
-
-    <script src="runtime-config.js?v=20261028-occupancy"></script>
-    <script src="layer-state.js"></script>
-    <script src="script.js"></script>
-    <script src="parking-ranking.js"></script>
-    <script src="parking-candidates.js"></script>
-
-    <script src="destination-search.js"></script>
-
-    <script src="parking-occupancy.js"></script>
-
-
-    <script src="parking-layers.js"></script>
-    <script src="restriction-layers.js"></script>
-    <script src="recommendations-panel.js"></script>
-</body>
-</html>
+<header class="app-header"><div class="brand"><span class="brand-icon">P</span><div><strong>Zona SER <span>Madrid</span></strong><small>ENCUENTRA TU SITIO</small></div></div><a href="#about" class="info-link">Datos y fuentes</a></header>
+<main class="app-shell">
+<section class="intro"><div><p class="eyebrow">MADRID, A TU MANERA</p><h1>¿Dónde dejamos el coche?</h1><p>Compara plazas SER y aparcamientos cerca de tu destino.</p></div></section>
+<div class="search-wrap"><label class="sr-only" for="parking-search">Buscar aparcamiento por nombre o dirección</label><input type="search" id="parking-search" placeholder="Buscar aparcamiento"></div>
+<div class="quick-filters" aria-label="Filtros rápidos"><button type="button" id="all-ser" aria-pressed="false">Todo el SER</button><button type="button" id="rides" aria-pressed="true">Disuasorios</button><button type="button" id="public-parking" aria-pressed="true">Parkings</button></div>
+<div class="map-wrap"><div id="map" aria-label="Mapa de aparcamientos de Madrid"></div><div class="map-top"><span id="data-status" role="status">Cargando datos…</span><button type="button" id="retry-data" hidden>Reintentar SER</button><button type="button" id="choose-destination">Marcar destino</button></div></div>
+<section class="results"><div class="results-head"><div><p class="eyebrow">EXPLORA LAS OPCIONES</p><h2 id="results-title">Aparcamientos en el mapa</h2><p id="results-hint">Mueve el mapa o marca un destino para ordenar por cercanía.</p></div><span id="result-count" class="count">0</span></div><div id="destination-notice" hidden>Distancia en línea recta, no tiempo de viaje. <button type="button" id="clear-destination">Quitar destino</button></div><div id="parking-results" class="cards"></div><p id="empty-results" hidden>No hay aparcamientos que coincidan. Prueba otra búsqueda o aleja el mapa.</p></section>
+<footer id="about"><strong>Datos de consulta</strong><p>Las distancias son en línea recta. No se muestran disponibilidad ni tarifas actualizadas. Consulta la señalización y las condiciones oficiales antes de aparcar. Las capas ZBE son informativas y no comprueban el acceso de tu vehículo.</p><p>Plazas y reglas SER: instantánea del repositorio; reglas verificadas el 24/09/2026. Aparca+T: catálogo verificado el 24/09/2026. Los parkings municipales proceden del Ayuntamiento. Los datos son instantáneas y pueden cambiar; consulta la fecha y la fuente oficial antes de decidir.</p><a href="https://datos.madrid.es/dataset/200077-0-zona-ser" target="_blank" rel="noopener noreferrer">Fuente SER</a> · <a href="https://www.crtm.es/tu-transporte-publico/intermodalidad/aparcaplust/" target="_blank" rel="noopener noreferrer">Condiciones Aparca+T</a> · <a href="https://github.com/svg153/Zona-SER-Madrid" target="_blank" rel="noopener noreferrer">Proyecto</a></footer>
+</main>
+<script src="runtime-config.js?v=20261028-occupancy"></script>
+<script src="layer-state.js"></script>
+<script src="script.js"></script>
+<script src="parking-ranking.js"></script>
+<script src="parking-candidates.js"></script>
+<script src="destination-search.js"></script>
+<script src="parking-occupancy.js"></script>
+<script src="decision-panel.js"></script>
+<script src="parking-layers.js"></script>
+<script src="restriction-layers.js"></script>
+<script src="recommendations-panel.js"></script>
+</body></html>

@@ -10,6 +10,7 @@ const feature = (geometry, properties) => ({type:'Feature',geometry,properties})
 const featureCollection = features => ({type:'FeatureCollection',features});
 const fixtures = {
   '/objects.geojson': featureCollection([feature({type:'Polygon',coordinates:[[[-3.702,40.399],[-3.701,40.399],[-3.701,40.401],[-3.702,40.401],[-3.702,40.399]]]}, {Color:'Naranja',OBJECTID:801,zona:'1'})]),
+  '/ser-data/orange.geojson': featureCollection([feature({type:'Polygon',coordinates:[[[-3.702,40.399],[-3.701,40.399],[-3.701,40.401],[-3.702,40.401],[-3.702,40.399]]]}, {Color:'Naranja',OBJECTID:801,zona:'1'})]),
   '/disuasorios.geojson': featureCollection([feature({type:'Point',coordinates:[-3.711,40.4]}, {kind:'municipal_park_ride',name:'Disuasorio del origen',minHours:0,maxHours:12,freeWhenEligible:true})]),
   '/aparcat.geojson': featureCollection([feature({type:'Point',coordinates:[-3.712,40.4]}, {kind:'regional_park_ride',name:'Aparca+T',minHours:0,maxHours:12,freeWhenEligible:true})]),
   '/parkings-publicos.geojson': featureCollection([feature({type:'Point',coordinates:[-3.6996,40.4]}, {kind:'municipal_public_parking',name:'Parking público de prueba'})]),

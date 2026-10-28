@@ -56,19 +56,31 @@
         return html;
     }
 
+    function deduplicateParkingLayers() {
+        var ride = overlay_registry['parking:municipal-park-ride'];
+        var pub = overlay_registry['parking:public-municipal'];
+        if (!ride || !pub) return;
+        var positions = {};
+        ride.layer.eachLayer(function(marker) { var p = marker.getLatLng(); positions[p.lat + ',' + p.lng] = true; });
+        var duplicates = [];
+        pub.layer.eachLayer(function(marker) { var p = marker.getLatLng(); if (positions[p.lat + ',' + p.lng]) duplicates.push(marker); });
+        duplicates.forEach(function(marker) { pub.layer.removeLayer(marker); });
+        if (duplicates.length) window.dispatchEvent(new Event('parking-deduplicated'));
+    }
+
     function loadParkingLayer(config) {
         load_json(config.path, function(response) {
             window.parkingDecisionSources[config.id] = response;
             window.dispatchEvent(new CustomEvent('parking:source-updated', {detail: {source: config.id}}));
             var layer = L.geoJSON(response, {
                 pointToLayer: function(feature, latlng) {
-                    return L.marker(latlng, {icon: parkingIcon(config.kind)});
+                    return L.marker(latlng, {icon: parkingIcon(config.kind), title: (feature.properties && feature.properties.name) || config.label, alt: (feature.properties && feature.properties.name) || config.label});
                 },
                 onEachFeature: function(feature, marker) {
                     marker.bindPopup(parkingPopup(feature), {maxWidth: 380});
                 }
             });
-            window.dispatchEvent(new CustomEvent('parking-data', {detail:{config:config,data:response,layer:layer}}));
+            window.dispatchEvent(new CustomEvent('parking-data', {detail:{config:config, data:response, layer:layer}}));
             register_decision_layer(
                 config.group,
                 config.id,
@@ -77,6 +89,7 @@
                 config.defaultOn,
                 config.order
             );
+            deduplicateParkingLayers();
 
             if (
                 config.kind === 'municipal_public_parking' &&
@@ -117,7 +130,7 @@
         group: 'parkride',
         id: 'parking:aparca-t',
         label: 'Aparca+T CRTM',
-        defaultOn: false,
+        defaultOn: true,
         order: 2
     });
     loadParkingLayer({
@@ -126,7 +139,7 @@
         group: 'parking',
         id: 'parking:public-municipal',
         label: 'Públicos municipales',
-        defaultOn: false,
+        defaultOn: true,
         order: 1
     });
 })();
