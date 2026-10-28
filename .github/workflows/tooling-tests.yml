@@ -6,6 +6,7 @@ on:
       - 'scripts/**'
       - 'tests/**'
       - 'web/*.js'
+      - 'web/index.html'
       - 'package*.json'
       - 'api/**'
       - 'vercel.json'
