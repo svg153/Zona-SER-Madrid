@@ -54,3 +54,29 @@ const Api = require("../api/parking-occupancy.js");
     assert.strictEqual(result.parkings[0].id, "9");
     assert.strictEqual(calls, 2);
 })().then(() => console.log("parking occupancy api tests passed"));
+
+(async function testDisallowedOriginIsRejected() {
+    let upstreamCalls = 0;
+    const handler = Api.createHandler({
+        fetchImpl: async () => {
+            upstreamCalls += 1;
+            throw new Error("upstream should not be called for a denied origin");
+        }
+    });
+    const response = {
+        headers: {},
+        statusCode: null,
+        body: null,
+        setHeader(name, value) { this.headers[name] = value; },
+        status(code) { this.statusCode = code; return this; },
+        json(body) { this.body = body; return this; },
+        end() { return this; }
+    };
+
+    await handler({method: "GET", headers: {origin: "https://untrusted.example"}}, response);
+    assert.strictEqual(response.statusCode, 403);
+    assert.deepStrictEqual(response.body, {error: "origin_not_allowed"});
+    assert.strictEqual(response.headers["Access-Control-Allow-Origin"], undefined);
+    assert.strictEqual(upstreamCalls, 0);
+    assert.strictEqual(Api.allowedOrigin("https://svg153.github.io"), "https://svg153.github.io");
+})().then(() => console.log("parking occupancy CORS test passed"));
