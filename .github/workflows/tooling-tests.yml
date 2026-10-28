@@ -54,6 +54,7 @@ jobs:
         run: |
           node tests/test_parking_occupancy_api.js
           node tests/test_parking_occupancy_client.js
+          node tests/test_parking_occupancy_coverage.js
       - name: Test parking ranking prototype
         run: node tests/test_parking_ranking.js
 
